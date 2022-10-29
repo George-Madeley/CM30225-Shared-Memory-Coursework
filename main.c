@@ -18,10 +18,18 @@ void print_array(double *arr, int size);
 
 int main(int argc, char const *argv[])
 {
-  const int NUM_OF_THREADS = 4;
-  const int ARRAY_SIZE = 10;
+  int NUM_OF_THREADS;
+  int ARRAY_SIZE;
+  int PRINT_ARRAY;
+  if (argc == 4) {
+    NUM_OF_THREADS = atoi(argv[1]);
+    ARRAY_SIZE = atoi(argv[2]);
+    PRINT_ARRAY = atoi(argv[3]);
+  } else {
+    printf("You need Four arguments: The program, number of threads, array size.");
+  }
 
-  int number_of_iterations = (ARRAY_SIZE * ARRAY_SIZE) / NUM_OF_THREADS;
+  int number_of_iterations = ceil((ARRAY_SIZE * ARRAY_SIZE) / NUM_OF_THREADS);
 
   double *ptr_input_array = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
   double *ptr_output_array = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
@@ -29,8 +37,10 @@ int main(int argc, char const *argv[])
   populate_array(ptr_input_array, ARRAY_SIZE);
   populate_array(ptr_output_array, ARRAY_SIZE);
 
-  printf("Input Array:\n");
-  print_array(ptr_input_array, ARRAY_SIZE);
+  if (PRINT_ARRAY == 1) {
+    printf("Input Array:\n");
+    print_array(ptr_input_array, ARRAY_SIZE);
+  }
 
   pthread_t *threads = malloc(NUM_OF_THREADS * sizeof(pthread_t));
 
@@ -74,8 +84,10 @@ int main(int argc, char const *argv[])
     }
   }
 
-  printf("\n\nOutput Array:\n");
-  print_array(ptr_output_array, ARRAY_SIZE);
+  if (PRINT_ARRAY == 1) {
+    printf("\n\nOutput Array:\n");
+    print_array(ptr_output_array, ARRAY_SIZE);
+  }
   exit(0);
 };
 
