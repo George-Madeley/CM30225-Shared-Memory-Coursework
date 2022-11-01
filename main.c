@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <math.h>
+#include <time.h>
 
 struct thread_args {
   int array_size;
@@ -18,6 +19,8 @@ void print_array(double *arr, int size);
 
 int main(int argc, char const *argv[])
 {
+  clock_t start_time = clock();
+  
   int NUM_OF_THREADS;
   int ARRAY_SIZE;
   int PRINT_ARRAY;
@@ -83,6 +86,12 @@ int main(int argc, char const *argv[])
       }
     }
   }
+
+  clock_t end_time = clock();
+
+  double time_elapsed = (double)(end_time - start_time)/CLOCKS_PER_SEC;
+
+  printf("Threads: %d took: %.5f seconds.\n", NUM_OF_THREADS, time_elapsed);
 
   if (PRINT_ARRAY == 1) {
     printf("\n\nOutput Array:\n");
