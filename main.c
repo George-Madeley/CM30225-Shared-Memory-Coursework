@@ -30,6 +30,7 @@ int main(int argc, char const *argv[])
     PRINT_ARRAY = atoi(argv[3]);
   } else {
     printf("You need Four arguments: The program, number of threads, array size.");
+    exit(0);
   }
 
   int number_of_iterations = ceil((ARRAY_SIZE * ARRAY_SIZE) / NUM_OF_THREADS);
