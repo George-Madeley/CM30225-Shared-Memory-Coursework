@@ -9,8 +9,9 @@
       "console": "integratedTerminal",
       "justMyCode": true,
       "args": [
-        "44",
-        "100"
+        "44", // Number of threads
+        "100", // Array Size
+        "100" // Number of tests
       ]
     },
     {
@@ -18,7 +19,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${fileDirname}\\${fileBasenameNoExtension}.exe",
-      "args": ["5", "10", "0"],
+      "args": ["3", "10", "1"],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",
       "environment": [],

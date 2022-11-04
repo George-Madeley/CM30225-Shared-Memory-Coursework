@@ -7,8 +7,8 @@ from statistics import stdev
 
 def main():
   MAX_THREAD_NUM = int(sys.argv[1])
-  NUM_OF_TESTS = int(sys.argv[2])
-  ARRAY_SIZE = 100
+  ARRAY_SIZE = int(sys.argv[2])
+  NUM_OF_TESTS = int(sys.argv[3])
 
   current_datetime = datetime.now()
   dt_string = current_datetime.strftime("%d-%m-%Y %H%M%S")
