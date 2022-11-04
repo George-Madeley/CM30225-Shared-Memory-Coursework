@@ -27,7 +27,7 @@ def main():
         end_time = time.time_ns()
         time_diff = (end_time - start_time) / (10 ** 9)
         times.append(time_diff)
-        print(f"test {test_num}\t\t\t time: {time_diff}")
+        print(f"Threads: {str(thread_num).zfill(2)}\tTest {str(test_num).zfill(3)}\t\t\t time: {time_diff}")
       row_dict = {
         'num of threads': thread_num,
         'lowest time': min(times),

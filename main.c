@@ -16,12 +16,14 @@ void *calculate_average_of_neighbors_in_row(void *args);
 double calculate_average_of_neighbors(int idx, int ARRAY_SIZE, double *ptr_input);
 
 void populate_array(double *input_arr, int size);
+void populate_expected_outcome(double *output_arr, int size);
+int is_expected_outcome(double *output_arr, double *expected_arr, int size);
 void print_array(double *arr, int size);
 
 int main(int argc, char const *argv[])
 {
-  if (argc != 5) {
-    printf("You need Four arguments: The program, number of threads, array size.");
+  if (argc != 4) {
+    printf("ERROR: You need Four arguments: The program, number of threads, array size.\n");
     exit(0);
   }
 
@@ -33,9 +35,11 @@ int main(int argc, char const *argv[])
 
   double *ptr_input_array = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
   double *ptr_output_array = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
+  double *ptr_expected_array = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
 
   populate_array(ptr_input_array, ARRAY_SIZE);
   populate_array(ptr_output_array, ARRAY_SIZE);
+  populate_expected_outcome(ptr_expected_array, ARRAY_SIZE);
 
   pthread_t *threads = malloc(NUM_OF_THREADS * sizeof(pthread_t));
 
@@ -74,11 +78,19 @@ int main(int argc, char const *argv[])
     }
   }
 
+  if (is_expected_outcome(ptr_output_array, ptr_expected_array, ARRAY_SIZE) == 0) {
+    printf("TEST: \033[0;31m FAILED\t\033[0m");
+  } else {
+    printf("TEST: \033[0;32m PASSED\t\033[0m");
+  }
+
   if (PRINT_ARRAY == 1) {
     printf("Input Array:\n");
     print_array(ptr_input_array, ARRAY_SIZE);
-    printf("\n\nOutput Array:\n");
+    printf("\nOutput Array:\n");
     print_array(ptr_output_array, ARRAY_SIZE);
+    printf("\nExpected Array:\n");
+    print_array(ptr_expected_array, ARRAY_SIZE);
   }
   exit(0);
 };
@@ -124,6 +136,39 @@ void populate_array(double *input_arr, int size) {
     }
   }
 };
+
+void populate_expected_outcome(double *arr, int size) {
+  for (int j = 0; j < size; j++) {
+    for (int i = 0; i < size; i++) {
+      int index = (j * size) + i;
+      if (((j == 1) && (i < (size - 1)) && (i > 0)) || ((i == 1) && (j < (size - 1)) && (j > 0))) {
+        arr[index] = 0.25;
+      } else if ((j == 0) || (i == 0)) {
+        arr[index] = 1.;
+      } else {
+        arr[index] = 0.;
+      }
+      arr[size + 1] = 0.5;
+    }
+  }
+};
+
+int is_expected_outcome(double *out_arr, double *exp_arr, int size) {
+  int isSame = 1;
+  for (int j = 0; j < size; j++) {
+    for (int i = 0; i < size; i++) {
+      int index = (j * size) + i;
+      if (out_arr[index] != exp_arr[index]) {
+        isSame = 0;
+        break;
+      }
+    }
+    if (isSame == 0) {
+      break;
+    }
+  }
+  return isSame;
+}
 
 void print_array(double *arr, int size) {
   for (int j = 0; j < size; j++) {

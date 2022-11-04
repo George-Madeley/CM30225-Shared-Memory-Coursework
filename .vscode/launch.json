@@ -9,8 +9,8 @@
       "console": "integratedTerminal",
       "justMyCode": true,
       "args": [
-        "10",
-        "5"
+        "44",
+        "100"
       ]
     },
     {
@@ -18,7 +18,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${fileDirname}\\${fileBasenameNoExtension}.exe",
-      "args": ["-lpthread"],
+      "args": ["5", "10", "0"],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",
       "environment": [],
