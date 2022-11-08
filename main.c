@@ -23,6 +23,7 @@
  *  array_size        (int)     Size of the array,
  *  thread_num        (int)     thread index,
  *  rows_per_thread   (int)     Number of rows the thread must compute,
+ *  num_of_decimals   (int)     Number of decimal places,
  *  ptr_output        (*double) Pointer to the output array,
  *  ptr_input         (*double) Pointer to the input array,
  *  ptr_func          (*double) Pointer to the function to calculate average
@@ -32,6 +33,7 @@ struct thread_args {
   int array_size;
   int thread_num;
   int rows_per_thread;
+  int num_of_decimals;
   double *ptr_output;
   double *ptr_input;
   double (*ptr_func)(int, int, double*);
@@ -70,10 +72,11 @@ void populate_array(double *input_arr, int size);
 /**
  * @brief Populates a given array with the expected outcome values.
  * 
- * @param arr   (*double) pointer to a square 2D-array.
- * @param size  (int) size of the array (one-dimension).
+ * @param arr               (*double) pointer to a square 2D-array.
+ * @param size              (int)     size of the array (one-dimension).
+ * @param num_of_decimals   (int)     Number of decimals to round to.
  */
-void populate_expected_outcome(double *output_arr, int size);
+void populate_expected_outcome(double *output_arr, int size, int num_of_decimals);
 
 /**
  * @brief Compares two given arrays to see if their values match.
@@ -102,9 +105,10 @@ void print_array(double *arr, int size);
  * 
  * @param argc The number of arguments
  * @param argv An array of arguments;
- *  1) (int) The number of threads to run the program on,
- *  2) (int) The size of the array
- *  3) (bool) True if the program should print the input and output arrays.
+ *  1)  (int)   The number of threads to run the program on,
+ *  2)  (int)   The size of the array
+ *  3)  (int)   The number of decimals places each result should have. 
+ *  4)  (bool)  True if the program should print the input and output arrays.
  * 
  * @return int 
  */
@@ -112,15 +116,30 @@ int main(int argc, char const *argv[])
 {
   // Check the number of arguments passed to the program. Exits if not enough
   // arguments have been provided.
-  if (argc != 4) {
-    printf("ERROR: You need Four arguments: The program, number of threads, array size.\n");
+  if (argc < 4) {
+    printf("ERROR: You need atleast four arguments. You have provided %d.\n", argc);
+    printf("The program, number of threads, array size, and the number of\n");
+    printf("decimal places. There is an optional argument of 1 if you would\n");
+    printf("like to print the input and output arrays.\n");
     exit(0);
   }
 
   // Gets the arguments in the correct type
-  int NUM_OF_THREADS = atoi(argv[1]);
-  int ARRAY_SIZE = atoi(argv[2]);
-  int PRINT_ARRAY = atoi(argv[3]);
+  int NUM_OF_THREADS;
+  int ARRAY_SIZE;
+  int NUM_OF_DECIMALS;
+  int PRINT_ARRAY;
+  if (argc == 4) {
+    NUM_OF_THREADS = atoi(argv[1]);
+    ARRAY_SIZE = atoi(argv[2]);
+    NUM_OF_DECIMALS = atoi(argv[3]);
+    PRINT_ARRAY = 0;
+  } else if (argc == 5) {
+    NUM_OF_THREADS = atoi(argv[1]);
+    ARRAY_SIZE = atoi(argv[2]);
+    NUM_OF_DECIMALS = atoi(argv[3]);
+    PRINT_ARRAY = atoi(argv[4]);
+  }
 
   // Allocate the space in memory for the input, output, and expected output array
   double *ptr_input_array = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
@@ -130,7 +149,7 @@ int main(int argc, char const *argv[])
   // populate the arrays with the correct values
   populate_array(ptr_input_array, ARRAY_SIZE);
   populate_array(ptr_output_array, ARRAY_SIZE);
-  populate_expected_outcome(ptr_expected_array, ARRAY_SIZE);
+  populate_expected_outcome(ptr_expected_array, ARRAY_SIZE, NUM_OF_DECIMALS);
 
   // Caclulates the number of rows each thread will be given.
   int rows_per_thread = (int)ceil(((float)ARRAY_SIZE - 2) / (float)NUM_OF_THREADS);
@@ -145,11 +164,12 @@ int main(int argc, char const *argv[])
   // and arguments as a struct.
   for (int create_thread_num = 0; create_thread_num < NUM_OF_THREADS; create_thread_num++) {
     // Creates a stuct of arguments unique to each thread.
+    thread_arguments[create_thread_num].array_size = ARRAY_SIZE;
     thread_arguments[create_thread_num].thread_num = create_thread_num;
     thread_arguments[create_thread_num].rows_per_thread = rows_per_thread;
+    thread_arguments[create_thread_num].num_of_decimals = NUM_OF_DECIMALS;
     thread_arguments[create_thread_num].ptr_input = ptr_input_array;
     thread_arguments[create_thread_num].ptr_output = ptr_output_array;
-    thread_arguments[create_thread_num].array_size = ARRAY_SIZE;
     thread_arguments[create_thread_num].ptr_func = &calculate_average_of_neighbors;
 
     // Creates the thread and passes in the function to fun and the arguments for that function
@@ -214,6 +234,7 @@ void *calculate_average_of_neighbors_in_row(void *args)
   const int ARRAY_SIZE = (*current_arguments).array_size;
   const int ROWS_PER_THREAD = (*current_arguments).rows_per_thread;
   const int THREAD_NUM = (*current_arguments).thread_num;
+  const int NUM_OF_DECIMALS = (*current_arguments).num_of_decimals;
 
   // Calculates the index of the input array to start at.
   const int START_IDX = (THREAD_NUM * ROWS_PER_THREAD * ARRAY_SIZE) + ARRAY_SIZE;
@@ -236,13 +257,18 @@ void *calculate_average_of_neighbors_in_row(void *args)
       // Checks if there are four neighbors.
       if (((idx % ARRAY_SIZE) == (ARRAY_SIZE - 1)) || ((idx % ARRAY_SIZE) == 0)) { continue; }
 
-      // Calculates the average of the four neighbors and stores the value
-      // in the cells corresponding position in the output array.
-      (*current_arguments).ptr_output[idx] = (*(*current_arguments).ptr_func)(
+      // Calculates the average of the four neighbors
+      double average = (*(*current_arguments).ptr_func)(
         idx,
         ARRAY_SIZE,
         (*current_arguments).ptr_input
       );
+
+      // Rounds the average to a given number of decimal places
+      double rounded_average = roundf(average * pow(10, NUM_OF_DECIMALS)) / pow(10, NUM_OF_DECIMALS);
+
+      // Stores the average in the cells corresponding position in the output array
+      (*current_arguments).ptr_output[idx] = rounded_average;
     }
   }
 };
@@ -307,21 +333,22 @@ void populate_array(double *input_arr, int size) {
 /**
  * @brief Populates a given array with the expected outcome values.
  * 
- * @param arr   (*double) pointer to a square 2D-array.
- * @param size  (int) size of the array (one-dimension).
+ * @param arr               (*double) pointer to a square 2D-array.
+ * @param size              (int)     size of the array (one-dimension).
+ * @param num_of_decimals   (int)     Number of decimals to round to.
  */
-void populate_expected_outcome(double *arr, int size) {
+void populate_expected_outcome(double *arr, int size, int num_of_decimals) {
   for (int j = 0; j < size; j++) {
     for (int i = 0; i < size; i++) {
       int index = (j * size) + i;
       if (((j == 1) && (i < (size - 1)) && (i > 0)) || ((i == 1) && (j < (size - 1)) && (j > 0))) {
-        arr[index] = 0.25;
+        arr[index] = roundf(0.25 * pow(10, num_of_decimals)) / pow(10, num_of_decimals);
       } else if ((j == 0) || (i == 0)) {
         arr[index] = 1.;
       } else {
         arr[index] = 0.;
       }
-      arr[size + 1] = 0.5;
+      arr[size + 1] = roundf(0.5 * pow(10, num_of_decimals)) / pow(10, num_of_decimals);
     }
   }
 };

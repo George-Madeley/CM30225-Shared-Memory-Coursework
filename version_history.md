@@ -1,5 +1,10 @@
 # Version History
 
+## 0.26
+
+- Added decimals place support.
+- Added optional arguments.
+
 ## 0.25
 
 - Commenting added.
