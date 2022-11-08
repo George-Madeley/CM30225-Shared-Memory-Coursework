@@ -11,7 +11,7 @@
       "args": [
         "44", // Number of threads
         "100", // Array Size
-        "10", // Number of tests
+        "100", // Number of tests
         "0.01"
       ]
     },

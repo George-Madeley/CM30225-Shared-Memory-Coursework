@@ -1,5 +1,9 @@
 # Version History
 
+## 0.32
+
+Updated Comments and documentaion.
+
 ## 0.31
 
 - Changed code to repeatedly calculate the average of the four neighbors until the diffrence between the previous average and current average is less than a given precision level.
