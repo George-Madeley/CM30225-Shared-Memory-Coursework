@@ -23,69 +23,58 @@
  *  array_size        (int)     Size of the array,
  *  thread_num        (int)     thread index,
  *  rows_per_thread   (int)     Number of rows the thread must compute,
- *  num_of_decimals   (int)     Number of decimal places,
+ *  ptr_g_is_precise  (*int)    Pointer to global precision value.
+ *  precision         (double)  Precision of results,
  *  ptr_output        (*double) Pointer to the output array,
  *  ptr_input         (*double) Pointer to the input array,
- *  ptr_func          (*double) Pointer to the function to calculate average
- *                              of four neighbors.
  */
 struct thread_args {
   int array_size;
   int thread_num;
   int rows_per_thread;
-  int num_of_decimals;
+  int *ptr_g_num_of_iterations;
+  int *ptr_g_is_precise;
+  double precision;
   double *ptr_output;
   double *ptr_input;
-  double (*ptr_func)(int, int, double*);
+  pthread_barrier_t *ptr_barrier;
 };
 
 /**
  * @brief Populates a given array with the initial starting values.
  * 
  * @param input_arr (*double) pointer to a square 2D-array.
- * @param size      (int) size of the array (one-dimension).
+ * @param size      (int)     size of the array (one-dimension).
  */
-void *calculate_average_of_neighbors_in_row(
+void *calculate_average_of_neighbors(
   void *args
-);
-
-/**
- * @brief Populates a given array with the expected outcome values.
- * 
- * @param arr   (*double) pointer to a square 2D-array.
- * @param size  (int) size of the array (one-dimension).
- */
-double calculate_average_of_neighbors(
-  int idx,
-  int ARRAY_SIZE,
-  double *ptr_input
 );
 
 /**
  * @brief Populates a given array with the initial starting values.
  * 
  * @param input_arr (*double) pointer to a square 2D-array.
- * @param size      (int) size of the array (one-dimension).
+ * @param size      (int)     size of the array (one-dimension).
  */
 void populate_array(double *input_arr, int size);
 
 /**
  * @brief Populates a given array with the expected outcome values.
  * 
- * @param arr               (*double) pointer to a square 2D-array.
- * @param size              (int)     size of the array (one-dimension).
- * @param num_of_decimals   (int)     Number of decimals to round to.
+ * @param arr        (*double) pointer to a square 2D-array.
+ * @param size       (int)     size of the array (one-dimension).
+ * @param precision  (int)     Number of decimals to round to.
  */
-void populate_expected_outcome(double *output_arr, int size, int num_of_decimals);
+int populate_expected_outcome(double *output_arr, double *temp_arr, int size, double precision);
 
 /**
  * @brief Compares two given arrays to see if their values match.
  * 
  * @param out_arr   (*double) pointer to array to compare.
  * @param exp_arr   (*double) pointer to array to compare.
- * @param size      (int) size of the arrays (one-dimension).
+ * @param size      (int)     size of the arrays (one-dimension).
  * 
- * @return          (int) 1 if arrays match, 0 if they do not.
+ * @return          (int)     1 if arrays match, 0 if they do not.
  */
 int is_expected_outcome(double *output_arr, double *expected_arr, int size);
 
@@ -93,7 +82,7 @@ int is_expected_outcome(double *output_arr, double *expected_arr, int size);
  * @brief Prints a given array.
  * 
  * @param arr   (*double) pointer to array.
- * @param size  (int) size of the array (one-dimension).
+ * @param size  (int)     size of the array (one-dimension).
  */
 void print_array(double *arr, int size);
 
@@ -127,17 +116,17 @@ int main(int argc, char const *argv[])
   // Gets the arguments in the correct type
   int NUM_OF_THREADS;
   int ARRAY_SIZE;
-  int NUM_OF_DECIMALS;
+  double PRECISION;
   int PRINT_ARRAY;
   if (argc == 4) {
     NUM_OF_THREADS = atoi(argv[1]);
     ARRAY_SIZE = atoi(argv[2]);
-    NUM_OF_DECIMALS = atoi(argv[3]);
+    PRECISION = atof(argv[3]);
     PRINT_ARRAY = 0;
   } else if (argc == 5) {
     NUM_OF_THREADS = atoi(argv[1]);
     ARRAY_SIZE = atoi(argv[2]);
-    NUM_OF_DECIMALS = atoi(argv[3]);
+    PRECISION = atof(argv[3]);
     PRINT_ARRAY = atoi(argv[4]);
   }
 
@@ -145,11 +134,18 @@ int main(int argc, char const *argv[])
   double *ptr_input_array = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
   double *ptr_output_array = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
   double *ptr_expected_array = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
+  double *ptr_temp_arr = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
 
   // populate the arrays with the correct values
   populate_array(ptr_input_array, ARRAY_SIZE);
   populate_array(ptr_output_array, ARRAY_SIZE);
-  populate_expected_outcome(ptr_expected_array, ARRAY_SIZE, NUM_OF_DECIMALS);
+  populate_array(ptr_expected_array, ARRAY_SIZE);
+  populate_array(ptr_temp_arr, ARRAY_SIZE);
+
+  int is_switched = populate_expected_outcome(ptr_expected_array, ptr_temp_arr, ARRAY_SIZE, PRECISION);
+  if (is_switched == 0) {
+    ptr_expected_array = ptr_temp_arr;
+  }
 
   // Caclulates the number of rows each thread will be given.
   int rows_per_thread = (int)ceil(((float)ARRAY_SIZE - 2) / (float)NUM_OF_THREADS);
@@ -160,6 +156,17 @@ int main(int argc, char const *argv[])
   // Allocate memory for the arguments each thread requires
   struct thread_args *thread_arguments = malloc(NUM_OF_THREADS * sizeof(struct thread_args));
 
+  // Creates the barrier to synchronise each thread after the average of the
+  // four neighbors of each cell in the whole array has been calculated.
+  pthread_barrier_t barrier;
+  int ret = pthread_barrier_init(&barrier, NULL, NUM_OF_THREADS);
+
+  // Assume the output result already has acceptable precision so if an
+  // unacceptable precision occurs, this value can be changed.
+  int g_is_precise = 1;
+
+  int g_num_of_iterations = 0;
+
   // Loops over each thread, creates each thread, and passes in the function
   // and arguments as a struct.
   for (int create_thread_num = 0; create_thread_num < NUM_OF_THREADS; create_thread_num++) {
@@ -167,16 +174,18 @@ int main(int argc, char const *argv[])
     thread_arguments[create_thread_num].array_size = ARRAY_SIZE;
     thread_arguments[create_thread_num].thread_num = create_thread_num;
     thread_arguments[create_thread_num].rows_per_thread = rows_per_thread;
-    thread_arguments[create_thread_num].num_of_decimals = NUM_OF_DECIMALS;
+    thread_arguments[create_thread_num].precision = PRECISION;
     thread_arguments[create_thread_num].ptr_input = ptr_input_array;
     thread_arguments[create_thread_num].ptr_output = ptr_output_array;
-    thread_arguments[create_thread_num].ptr_func = &calculate_average_of_neighbors;
+    thread_arguments[create_thread_num].ptr_barrier = &barrier;
+    thread_arguments[create_thread_num].ptr_g_is_precise = &g_is_precise;
+    thread_arguments[create_thread_num].ptr_g_num_of_iterations = &g_num_of_iterations;
 
     // Creates the thread and passes in the function to fun and the arguments for that function
     pthread_create(
       &threads[create_thread_num],
       NULL,
-      &calculate_average_of_neighbors_in_row,
+      &calculate_average_of_neighbors,
       &thread_arguments[create_thread_num]
     );
   }
@@ -184,6 +193,13 @@ int main(int argc, char const *argv[])
   // Waits for each thread to finish execution
   for (int join_thread_num = 0; join_thread_num < NUM_OF_THREADS; join_thread_num++) {
     pthread_join(threads[join_thread_num], NULL);
+  }
+
+  // Destorys barrier
+  pthread_barrier_destroy(&barrier);
+
+  if ((g_num_of_iterations % 2) == 1) {
+    ptr_output_array = ptr_input_array;
   }
 
   // Prints a pass of fail mssage depeding on if the output is equal to the expected output
@@ -212,21 +228,23 @@ int main(int argc, char const *argv[])
 /**
  * @brief Calculates the average of each cells four neighbors in the
  * specified rows. Stores the result in the cells corresponding
- * position in the output array.
+ * position in the output array. Repeats this process until the
+ * difference between the previous average and current average is
+ * less than the given level of precision.
+ * 
  * Function to be run on set number of threads.
  * 
  * @param args The stuct of arguments to be given to each thread;
- *  .array_size       (int)       The size of the array,
- *  .thread_num       (int)       The index of the thread,
- *  .rows_per_threads (int)       The number of rows the thread will calculate,
- *  .ptr_input        (*double)   Pointer to the input array,
- *  .ptr_output       (*double)   Pointer to the output array,
- *  .ptr_function     (*double)   Pointer to the function to calculate
- *                                The average of a given cells four
- *                                neighbors.
+ *  array_size        (int)     Size of the array,
+ *  thread_num        (int)     thread index,
+ *  rows_per_thread   (int)     Number of rows the thread must compute,
+ *  ptr_g_is_precise  (*int)    Pointer to global precision value.
+ *  precision         (double)  Precision of results,
+ *  ptr_output        (*double) Pointer to the output array,
+ *  ptr_input         (*double) Pointer to the input array,
  * @return void* 
  */
-void *calculate_average_of_neighbors_in_row(void *args)
+void *calculate_average_of_neighbors(void *args)
 {
   // Extracts the passed in structs values.
   struct thread_args *current_arguments = (struct thread_args*)args;
@@ -234,72 +252,98 @@ void *calculate_average_of_neighbors_in_row(void *args)
   const int ARRAY_SIZE = (*current_arguments).array_size;
   const int ROWS_PER_THREAD = (*current_arguments).rows_per_thread;
   const int THREAD_NUM = (*current_arguments).thread_num;
-  const int NUM_OF_DECIMALS = (*current_arguments).num_of_decimals;
+  const double PRECISION = (*current_arguments).precision;
+  pthread_barrier_t barrier = *(*current_arguments).ptr_barrier;
+
+  int *ptr_g_num_of_iterations = (*current_arguments).ptr_g_num_of_iterations;
+
+  double *ptr_array_1 = (*current_arguments).ptr_output;
+  double *ptr_array_2 = (*current_arguments).ptr_input;
 
   // Calculates the index of the input array to start at.
   const int START_IDX = (THREAD_NUM * ROWS_PER_THREAD * ARRAY_SIZE) + ARRAY_SIZE;
 
   // Calculates the number of cells to call the passed in function
-  const int NUM_OF_CELLS = (ARRAY_SIZE * ROWS_PER_THREAD) - 2;
+  const int NUM_OF_CELLS = ARRAY_SIZE * ROWS_PER_THREAD;
 
-  // Checks to see if the starting index is within the bounds of the array.
-  if (START_IDX < (ARRAY_SIZE * (ARRAY_SIZE - 1))) {
-    // Loops over each cells in the specified number of rows and calculates
-    // the average of the cells four neighbors.
-    for (int col_idx = 1; col_idx < (NUM_OF_CELLS + 1); col_idx++) {
+  int l_number_of_iterations = 0;
 
-      // Calculates the index of the cells relative the array as a whole.
-      int idx = START_IDX + col_idx;
+  int l_is_precise = 0;
+  while (l_is_precise == 0) {
+    // Assume all threads have reached an adequate level of precision.
+    l_is_precise = 1;
 
-      // Checks if index is out of the array bounds.
-      if (idx >= (ARRAY_SIZE * (ARRAY_SIZE - 1))) { break; }
+    // Pointers to input and output array are switched. This is to allow for
+    // extra iterations nad prevent race conditions from occuring when writing
+    // to the same array.
+    double *temp_ptr = ptr_array_1;
+    ptr_array_1 = ptr_array_2;
+    ptr_array_2 = temp_ptr;
 
-      // Checks if there are four neighbors.
-      if (((idx % ARRAY_SIZE) == (ARRAY_SIZE - 1)) || ((idx % ARRAY_SIZE) == 0)) { continue; }
 
-      // Calculates the average of the four neighbors
-      double average = (*(*current_arguments).ptr_func)(
-        idx,
-        ARRAY_SIZE,
-        (*current_arguments).ptr_input
-      );
+    // Checks to see if the starting index is within the bounds of the array.
+    if (START_IDX < (ARRAY_SIZE * (ARRAY_SIZE - 1))) {
+      // Loops over each cells in the specified number of rows and calculates
+      // the average of the cells four neighbors.
+      for (int col_idx = 0; col_idx < (NUM_OF_CELLS - 1); col_idx++) {
 
-      // Rounds the average to a given number of decimal places
-      double rounded_average = roundf(average * pow(10, NUM_OF_DECIMALS)) / pow(10, NUM_OF_DECIMALS);
+        // Calculates the index of the cells relative the array as a whole.
+        int idx = START_IDX + col_idx;
 
-      // Stores the average in the cells corresponding position in the output array
-      (*current_arguments).ptr_output[idx] = rounded_average;
+        // Checks if index is out of the array bounds.
+        if (idx >= (ARRAY_SIZE * (ARRAY_SIZE - 1))) { break; }
+
+        // Checks if there are four neighbors.
+        if (((idx % ARRAY_SIZE) == (ARRAY_SIZE - 1)) || ((idx % ARRAY_SIZE) == 0)) { continue; }
+
+        // Calculates the average of the four neighbors
+        double accumulator = 0;
+        double val1 = ptr_array_1[idx - 1];
+        double val2 = ptr_array_1[idx + 1];
+        double val3 = ptr_array_1[idx - ARRAY_SIZE];
+        double val4 = ptr_array_1[idx + ARRAY_SIZE];
+        accumulator += (val1 + val2 + val3 + val4);
+        double average = accumulator / 4;
+        
+        // Compare average with previous values and see if their values have
+        // changed and if that change is less than the precision.
+        double current_val = ptr_array_1[idx];
+        double difference = fabs(current_val - average);
+        if (difference >= PRECISION) {
+          // This value does not have a high enough level of precision.
+          l_is_precise = 0;
+        }
+
+        // Stores the average in the cells corresponding position in the output array
+        ptr_array_2[idx] = average;
+      }
     }
+
+    // update global precision value if this thread has not reached the
+    // required level of precision.
+    if (l_is_precise == 0) {
+      *(*current_arguments).ptr_g_is_precise = l_is_precise;
+    }
+
+    // Wait for all other threads to complete their rows.
+    pthread_barrier_wait(&barrier);
+
+    l_number_of_iterations += 1;
+    *ptr_g_num_of_iterations = l_number_of_iterations;
+
+    // After all threads have synchronisedan updated the global value of
+    // precision, all must read the value to see if another iteration
+    // is required.
+    // If global value is 1, then an adequate level of precision has been
+    // reached.
+    // If global value is 0, another iteration is required to obtain
+    // a high level of precision.
+    l_is_precise = *(*current_arguments).ptr_g_is_precise;
+    pthread_barrier_wait(&barrier);
+    *(*current_arguments).ptr_g_is_precise = 1;
+    pthread_barrier_wait(&barrier);
   }
 };
-
-
-
-/**
- * @brief Calculates the average of a given cells four enighbors.
- * 
- * @param idx           (int) The cells index. 
- * @param ARRAY_SIZE    (int) The size of the array.
- * @param ptr_input     (*double) The pointer to the inpout array. 
- * 
- * @return              (double) The average of the cells four neighbors.
- */
-double calculate_average_of_neighbors(int idx, int ARRAY_SIZE, double *ptr_input)
-{
-  double accumulator = 0;
-
-  // Gets all neighboring values
-  int val1 = ptr_input[idx - 1];
-  int val2 = ptr_input[idx + 1];
-  int val3 = ptr_input[idx - ARRAY_SIZE];
-  int val4 = ptr_input[idx + ARRAY_SIZE];
-
-  // Calculates the average
-  accumulator += (val1 + val2 + val3 + val4);
-  accumulator = accumulator / 4;
-  return accumulator;
-};
-
 
 
 
@@ -315,7 +359,7 @@ double calculate_average_of_neighbors(int idx, int ARRAY_SIZE, double *ptr_input
  * @brief Populates a given array with the initial starting values.
  * 
  * @param input_arr (*double) pointer to a square 2D-array.
- * @param size      (int) size of the array (one-dimension).
+ * @param size      (int)     size of the array (one-dimension).
  */
 void populate_array(double *input_arr, int size) {
   for (int j = 0; j < size; j++) {
@@ -333,24 +377,42 @@ void populate_array(double *input_arr, int size) {
 /**
  * @brief Populates a given array with the expected outcome values.
  * 
- * @param arr               (*double) pointer to a square 2D-array.
- * @param size              (int)     size of the array (one-dimension).
- * @param num_of_decimals   (int)     Number of decimals to round to.
+ * @param arr         (*double) pointer to a square 2D-array.
+ * @param size        (int)     size of the array (one-dimension).
+ * @param precision   (int)     Number of decimals to round to.
  */
-void populate_expected_outcome(double *arr, int size, int num_of_decimals) {
-  for (int j = 0; j < size; j++) {
-    for (int i = 0; i < size; i++) {
-      int index = (j * size) + i;
-      if (((j == 1) && (i < (size - 1)) && (i > 0)) || ((i == 1) && (j < (size - 1)) && (j > 0))) {
-        arr[index] = roundf(0.25 * pow(10, num_of_decimals)) / pow(10, num_of_decimals);
-      } else if ((j == 0) || (i == 0)) {
-        arr[index] = 1.;
-      } else {
-        arr[index] = 0.;
+int populate_expected_outcome(double *in_arr, double *out_arr, int size, double precision) {
+  int number_of_switches = 0;
+  int is_precise = 0;
+  while (is_precise == 0) {
+    is_precise = 1;
+    for (int j = 0; j < size; j++) {
+      for (int i = 0; i < size; i++) {
+        int index = (j * size) + i;
+        if ((i == 0) || (i == (size - 1)) || (j == 0) || (j == (size - 1))) { continue; }
+        double accumulator = 0;
+        double val1 = in_arr[index - 1];
+        double val2 = in_arr[index + 1];
+        double val3 = in_arr[index - size];
+        double val4 = in_arr[index + size];
+        accumulator += (val1 + val2 + val3 + val4);
+        double average = accumulator / 4;
+        out_arr[index] = average;
+
+        double current_val = in_arr[index];
+        double difference = fabs(current_val - average);
+        if (difference >= precision) {
+          is_precise = 0;
+        }
       }
-      arr[size + 1] = roundf(0.5 * pow(10, num_of_decimals)) / pow(10, num_of_decimals);
     }
+    // printf("Iteration Number: %d, precision: %d\n", number_of_switches, is_precise);
+    double *temp_ptr = in_arr;
+    in_arr = out_arr;
+    out_arr = temp_ptr;
+    number_of_switches += 1;
   }
+  return (number_of_switches % 2);
 };
 
 /**
@@ -358,9 +420,9 @@ void populate_expected_outcome(double *arr, int size, int num_of_decimals) {
  * 
  * @param out_arr   (*double) pointer to array to compare.
  * @param exp_arr   (*double) pointer to array to compare.
- * @param size      (int) size of the arrays (one-dimension).
+ * @param size      (int)     size of the arrays (one-dimension).
  * 
- * @return          (int) 1 if arrays match, 0 if they do not.
+ * @return          (int)     1 if arrays match, 0 if they do not.
  */
 int is_expected_outcome(double *out_arr, double *exp_arr, int size) {
   int isSame = 1;
@@ -383,7 +445,7 @@ int is_expected_outcome(double *out_arr, double *exp_arr, int size) {
  * @brief Prints a given array.
  * 
  * @param arr   (*double) pointer to array.
- * @param size  (int) size of the array (one-dimension).
+ * @param size  (int)     size of the array (one-dimension).
  */
 void print_array(double *arr, int size) {
   for (int j = 0; j < size; j++) {

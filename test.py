@@ -9,6 +9,7 @@ def main():
   MAX_THREAD_NUM = int(sys.argv[1])
   ARRAY_SIZE = int(sys.argv[2])
   NUM_OF_TESTS = int(sys.argv[3])
+  PRECISION = float(sys.argv[4])
 
   current_datetime = datetime.now()
   dt_string = current_datetime.strftime("%d-%m-%Y %H%M%S")
@@ -23,7 +24,7 @@ def main():
       print(f"===== thread number {thread_num} =====")
       for test_num in range(1, NUM_OF_TESTS + 1):
         start_time = time.time_ns()
-        subprocess.run(['./main.exe', str(thread_num), str(ARRAY_SIZE), '0'])
+        subprocess.run(['./main.exe', str(thread_num), str(ARRAY_SIZE), str(PRECISION), '0'])
         end_time = time.time_ns()
         time_diff = (end_time - start_time) / (10 ** 9)
         times.append(time_diff)

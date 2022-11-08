@@ -1,5 +1,13 @@
 # Version History
 
+## 0.31
+
+- Changed code to repeatedly calculate the average of the four neighbors until the diffrence between the previous average and current average is less than a given precision level.
+- Removed the function to calculate the average of four neighbours and included the code where the function is called.
+- Updated Python batch test to include precision level.
+- Removed decimal place support.
+- Updated function to calculate expected output arrayto support the precision level.
+
 ## 0.26
 
 - Added decimals place support.

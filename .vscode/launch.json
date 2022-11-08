@@ -11,7 +11,8 @@
       "args": [
         "44", // Number of threads
         "100", // Array Size
-        "100" // Number of tests
+        "10", // Number of tests
+        "0.01"
       ]
     },
     {
@@ -19,7 +20,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${fileDirname}\\${fileBasenameNoExtension}.exe",
-      "args": ["3", "10", "1", "1"],
+      "args": ["44", "100", "0.01", "0"],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",
       "environment": [],
