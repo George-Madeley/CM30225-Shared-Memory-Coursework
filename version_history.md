@@ -1,5 +1,9 @@
 # Version History
 
+## 0.33
+
+Will now give each thread a group of elements to compute the averages on instead of a group of rows. This is done to reduce the difference between time taken for the fast thread and the slowest thread to compute the average of four values.
+
 ## 0.32
 
 Updated Comments and documentaion.

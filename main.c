@@ -24,7 +24,7 @@
  * @brief Struct of arguments to be passed to a thread on creation.
  *  array_size              (int)     Size of the array,
  *  thread_num              (int)     thread index,
- *  rows_per_thread         (int)     Number of rows the thread must compute,
+ *  elements_per_thread     (int)     Number of elements the thread must compute,
  *  ptr_g_num_of_iterations (int)     The number of loop iterations it takes
  *                                    for a thread to reach the given precision
  *                                    level,
@@ -37,7 +37,7 @@
 struct thread_args {
   int array_size;
   int thread_num;
-  int rows_per_thread;
+  int elements_per_thread;
   int *ptr_g_num_of_iterations;
   int *ptr_g_is_precise;
   double precision;
@@ -58,7 +58,7 @@ struct thread_args {
  * @param args The stuct of arguments to be given to each thread;
  *  array_size              (int)     Size of the array,
  *  thread_num              (int)     thread index,
- *  rows_per_thread         (int)     Number of rows the thread must compute,
+ *  elements_per_thread     (int)     Number of elements the thread must compute,
  *  ptr_g_num_of_iterations (int)     The number of loop iterations it takes
  *                                    for a thread to reach the given precision
  *                                    level,
@@ -192,7 +192,7 @@ int main(int argc, char const *argv[])
   }
 
   // Caclulates the number of rows each thread will be given.
-  int rows_per_thread = (int)ceil(((float)ARRAY_SIZE - 2) / (float)NUM_OF_THREADS);
+  int elements_per_thread = (int)ceil(((float)(ARRAY_SIZE * (ARRAY_SIZE - 2))) / (float)NUM_OF_THREADS);
 
   // Allocate memory for the specified number of threads
   pthread_t *threads = malloc(NUM_OF_THREADS * sizeof(pthread_t));
@@ -220,7 +220,7 @@ int main(int argc, char const *argv[])
     // Creates a stuct of arguments unique to each thread.
     thread_arguments[create_thread_num].array_size = ARRAY_SIZE;
     thread_arguments[create_thread_num].thread_num = create_thread_num;
-    thread_arguments[create_thread_num].rows_per_thread = rows_per_thread;
+    thread_arguments[create_thread_num].elements_per_thread = elements_per_thread;
     thread_arguments[create_thread_num].precision = PRECISION;
     thread_arguments[create_thread_num].ptr_input = ptr_input_array;
     thread_arguments[create_thread_num].ptr_output = ptr_output_array;
@@ -296,7 +296,7 @@ int main(int argc, char const *argv[])
  * @param args The stuct of arguments to be given to each thread;
  *  array_size              (int)     Size of the array,
  *  thread_num              (int)     thread index,
- *  rows_per_thread         (int)     Number of rows the thread must compute,
+ *  elements_per_thread         (int)     Number of rows the thread must compute,
  *  ptr_g_num_of_iterations (int)     The number of loop iterations it takes
  *                                    for a thread to reach the given precision
  *                                    level,
@@ -313,7 +313,7 @@ void *calculate_average_of_neighbors(void *args)
   struct thread_args *current_arguments = (struct thread_args*)args;
 
   const int ARRAY_SIZE = (*current_arguments).array_size;
-  const int ROWS_PER_THREAD = (*current_arguments).rows_per_thread;
+  const int ELEMENTS_PER_THREAD = (*current_arguments).elements_per_thread;
   const int THREAD_NUM = (*current_arguments).thread_num;
   const double PRECISION = (*current_arguments).precision;
 
@@ -328,10 +328,7 @@ void *calculate_average_of_neighbors(void *args)
   double *ptr_array_2 = (*current_arguments).ptr_input;
 
   // Calculates the index of the input array to start at.
-  const int START_IDX = (THREAD_NUM * ROWS_PER_THREAD * ARRAY_SIZE) + ARRAY_SIZE;
-
-  // Calculates the number of cells to call the passed in function
-  const int NUM_OF_CELLS = ARRAY_SIZE * ROWS_PER_THREAD;
+  const int START_IDX = (THREAD_NUM * ELEMENTS_PER_THREAD) + ARRAY_SIZE;
 
   // initialises the local number of iterations.
   int l_number_of_iterations = 0;
@@ -356,7 +353,7 @@ void *calculate_average_of_neighbors(void *args)
     if (START_IDX < (ARRAY_SIZE * (ARRAY_SIZE - 1))) {
       // Loops over each cells in the specified number of rows and calculates
       // the average of the cells four neighbors.
-      for (int col_idx = 0; col_idx < (NUM_OF_CELLS - 1); col_idx++) {
+      for (int col_idx = 0; col_idx < ELEMENTS_PER_THREAD; col_idx++) {
 
         // Calculates the index of the cells relative the array as a whole.
         int idx = START_IDX + col_idx;
@@ -396,12 +393,9 @@ void *calculate_average_of_neighbors(void *args)
       *(*current_arguments).ptr_g_is_precise = l_is_precise;
     }
 
-    // Increment the number of iterations then set the new value to the
-    // global value. All l_number_of_iterations should be the same across
-    // all threads 
+    // Increment the number of iterations.  All l_number_of_iterations should
+    // be the same across all threads.
     l_number_of_iterations += 1;
-    *ptr_g_num_of_iterations = l_number_of_iterations;
-
     // After all threads have synchronised and updated the global value of
     // precision, all must read the value to see if another iteration
     // is required. However, all threads must sync before hand to prevent
@@ -416,6 +410,7 @@ void *calculate_average_of_neighbors(void *args)
     *(*current_arguments).ptr_g_is_precise = 1;
     pthread_barrier_wait(&barrier);
   }
+  *ptr_g_num_of_iterations = l_number_of_iterations;
 };
 
 
