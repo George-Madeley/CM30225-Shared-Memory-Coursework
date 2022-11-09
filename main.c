@@ -16,6 +16,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
 #include <math.h>
 #include <time.h>
@@ -45,6 +46,31 @@ struct thread_args {
   double *ptr_input;
   pthread_barrier_t *ptr_barrier;
 };
+
+/**
+ * @brief  Calculates the average of each cells four neighbors in a 2D-array
+ *         and stores the values in an output 2D-array.
+ * 
+ * @param NUM_OF_THREADS      (int)     The number of threads to use to run the
+ *                                      program,
+ * @param ARRAY_SIZE          (int)     The size of the input array.
+ * @param PRECISION           (float)   The level of precision for the output.
+ * @param PRINT_ARRAY         (int)     If the input and output arras should be
+ *                                      printed.
+ * @param ptr_sequential_time (*double) Points to the time it takes for the
+ *                                      sequential part of the program to run.
+ * @param ptr_parallel_time   (*double) Points to the time it takes for the
+ *                                      paralle part of the program to run.
+ * @return int 
+ */
+int run_program(
+  int NUM_OF_THREADS, 
+  int ARRAY_SIZE, 
+  float PRECISION,
+  int PRINT_ARRAY,
+  double *ptr_sequential_time,
+  double *ptr_parallel_time
+);
 
 /**
  * @brief Calculates the average of each cells four neighbors in the
@@ -132,8 +158,7 @@ void print_array(double *arr, int size);
 
 
 /**
- * @brief Entry Point to the Program. Calculates the average of each cells
- * four neighbors in a 2D-array and stores the values in an output 2D-array.
+ * @brief Entry Point to the Program.
  * 
  * @param argc The number of arguments
  * @param argv An array of arguments;
@@ -160,18 +185,172 @@ int main(int argc, char const *argv[])
   int NUM_OF_THREADS;
   int ARRAY_SIZE;
   double PRECISION;
+  int NUM_OF_TESTS;
   int PRINT_ARRAY;
   if (argc == 4) {
     NUM_OF_THREADS = atoi(argv[1]);
     ARRAY_SIZE = atoi(argv[2]);
     PRECISION = atof(argv[3]);
+    NUM_OF_TESTS = 0;
     PRINT_ARRAY = 0;
   } else if (argc == 5) {
     NUM_OF_THREADS = atoi(argv[1]);
     ARRAY_SIZE = atoi(argv[2]);
     PRECISION = atof(argv[3]);
-    PRINT_ARRAY = atoi(argv[4]);
+    NUM_OF_TESTS = atoi(argv[4]);
+    PRINT_ARRAY = 0;
+  } else if (argc == 6) {
+    NUM_OF_THREADS = atoi(argv[1]);
+    ARRAY_SIZE = atoi(argv[2]);
+    PRECISION = atof(argv[3]);
+    NUM_OF_TESTS = atoi(argv[4]);
+    PRINT_ARRAY = atoi(argv[5]);;
   }
+
+  // Determines if there is going to be a batch test or not.
+  if (NUM_OF_TESTS == 0) {
+    // No Batch test.
+
+    // Sets the values for the sequential and parallel times of the program to 0.
+    double sequential_time = 0.;
+    double parallel_time = 0.;
+    //=========================================================================
+    // Runs the progrom and returns either a 1 or a 0 if the output produced
+    // the correct answer or not respectively.
+    int has_passed = run_program(
+      NUM_OF_THREADS,
+      ARRAY_SIZE,
+      PRECISION,
+      PRINT_ARRAY,
+      &sequential_time,
+      &parallel_time);
+
+    // Prints some statistics of the operation of the program.
+    printf("Thread Num: %d\t", NUM_OF_THREADS);
+    if (has_passed == 0) {
+      printf("TEST: \033[0;31m FAILED\t\033[0m");
+    } else {
+      printf("TEST: \033[0;32m PASSED\t\033[0m");
+    }
+    printf(
+      "\tSequential Time: %f\tParallel Time: %f\n",
+      sequential_time,
+      parallel_time
+    );
+
+  } else if (NUM_OF_TESTS > 0) {
+    // Batch test will occur with a given number of tests.
+    // In a batch test, the tester code will run the program on 1 thread, then
+    // 2, then 3 and so on until it has reached the given number of threrads
+    // to use. The tester will run a given number of tests for each thread and
+    // record the results to a CSV file.
+
+    // Creates a CSV file with a unique name based on the current date and time.
+    char date_string[20];
+    time_t now = time(NULL);
+    strftime(date_string, 20, "%Y-%m-%d %H%M%S", localtime(&now));
+    char filename[50];
+    sprintf(filename, "./results/results %s.csv", date_string);
+    FILE *fpt;
+    fpt = fopen(filename, "w+");
+
+    // Writes the heads of the CSV file.
+    fprintf(
+      fpt,
+      "Number of Threads, Pass/Fail, Sequential Time (s), Parallel Time (s), Total Time (s)\n"
+    );
+
+    // Performs the batch testing.
+    for(int thread_num = 1; thread_num <= NUM_OF_THREADS; thread_num++) {
+      printf("===== thread number {%d} =====\n", thread_num);
+
+      // Defines the variables to record the average runtime of the
+      // sequential and parallel parts of the code.
+      double average_sequential_time = 0.;
+      double average_parallel_time = 0.;
+
+      // Sets the average pass rate; assumes all tests will pass. If one test
+      // fails, the batch test for that given number of threads will have failed.
+      int average_has_passed = 1;
+
+      // Executes the given number of tests on each number of threads.
+      for(int test_num = 0; test_num < NUM_OF_TESTS; test_num++) {
+        double sequential_time = 0.;
+        double parallel_time = 0.;
+
+        // Executes the program.
+        int has_passed = run_program(
+          thread_num,
+          ARRAY_SIZE,
+          PRECISION,
+          PRINT_ARRAY,
+          &sequential_time,
+          &parallel_time
+        );
+
+        // Prints some statistics of the operation of the program.
+        printf("Thread Num: %d\t", thread_num);
+        if (has_passed == 0) {
+          printf("TEST: \033[0;31m FAILED\t\033[0m");
+          average_has_passed = 0;
+        } else {
+          printf("TEST: \033[0;32m PASSED\t\033[0m");
+        }
+        printf("Sequential Time: %f    Parallel Time: %f\n", sequential_time, parallel_time);
+
+        average_parallel_time += parallel_time;
+        average_sequential_time += sequential_time;
+      }
+      // Caclulates the average sequential and parrallel runtimes of all the tests
+      average_sequential_time /= NUM_OF_TESTS;
+      average_parallel_time /= NUM_OF_TESTS;
+
+      // Records the statistics to the CSV file.
+      fprintf(fpt, "%d, %d, %f, %f, %f\n",
+        thread_num,
+        average_has_passed,
+        average_sequential_time, 
+        average_parallel_time,
+        (average_sequential_time + average_parallel_time)
+      );
+    }
+    fclose(fpt);
+  }
+
+  exit(0);
+};
+
+
+
+
+
+
+
+/**
+ * @brief  Calculates the average of each cells four neighbors in a 2D-array
+ *         and stores the values in an output 2D-array.
+ * 
+ * @param NUM_OF_THREADS      (int)     The number of threads to use to run the
+ *                                      program,
+ * @param ARRAY_SIZE          (int)     The size of the input array.
+ * @param PRECISION           (float)   The level of precision for the output.
+ * @param PRINT_ARRAY         (int)     If the input and output arras should be
+ *                                      printed.
+ * @param ptr_sequential_time (*double) Points to the time it takes for the
+ *                                      sequential part of the program to run.
+ * @param ptr_parallel_time   (*double) Points to the time it takes for the
+ *                                      paralle part of the program to run.
+ * @return int 1 if the function produced the correct answer, 0 otherwise.
+ */
+int run_program(
+  int NUM_OF_THREADS, 
+  int ARRAY_SIZE, 
+  float PRECISION,
+  int PRINT_ARRAY,
+  double *ptr_sequential_time,
+  double *ptr_parallel_time
+) {
+  clock_t time_1 = clock();
 
   // Allocate the space in memory for the input, output, and expected output array
   double *ptr_input_array = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
@@ -213,6 +392,8 @@ int main(int argc, char const *argv[])
   // the given level of precision. Will be used to swap the pointers to the
   // input and output arrays if required.
   int g_num_of_iterations = 0;
+  
+  clock_t time_2 = clock();
 
   // Loops over each thread, creates each thread, and passes in the function
   // and arguments as a struct.
@@ -242,6 +423,8 @@ int main(int argc, char const *argv[])
     pthread_join(threads[join_thread_num], NULL);
   }
 
+  clock_t time_3 = clock();
+
   // Destorys barrier
   pthread_barrier_destroy(&barrier);
 
@@ -250,14 +433,6 @@ int main(int argc, char const *argv[])
   // averages.
   if ((g_num_of_iterations % 2) == 1) {
     ptr_output_array = ptr_input_array;
-  }
-
-  // Prints a pass of fail mssage depeding on if the output is equal to the expected output
-  int is_same = is_expected_outcome(ptr_output_array, ptr_expected_array, ARRAY_SIZE);
-  if (is_same == 0) {
-    printf("TEST: \033[0;31m FAILED\t\033[0m");
-  } else {
-    printf("TEST: \033[0;32m PASSED\t\033[0m");
   }
 
   // Prints the arrays if stated to do so
@@ -270,17 +445,19 @@ int main(int argc, char const *argv[])
     print_array(ptr_expected_array, ARRAY_SIZE);
   }
 
-  exit(0);
-};
+  int has_passed = is_expected_outcome(ptr_output_array, ptr_expected_array, ARRAY_SIZE);
 
+  free(ptr_input_array);
+  free(ptr_expected_array);
+  free(ptr_temp_arr);
+  
+  clock_t time_4 = clock();
 
-
-
-
-
-
-
-
+  *ptr_sequential_time = ((double)(time_2 - time_1) / CLOCKS_PER_SEC) + ((double)(time_4 - time_3) / CLOCKS_PER_SEC);
+  *ptr_parallel_time = (double)(time_3 - time_2) / CLOCKS_PER_SEC;
+  
+  return has_passed;
+}
 
 
 
