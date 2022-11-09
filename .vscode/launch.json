@@ -2,23 +2,49 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Batch Test Program",
-      "type": "python",
-      "request": "launch",
-      "program": "test.py",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "args": [
-        "10",
-        "5"
-      ]
-    },
-    {
-      "name": "C/C++: gcc.exe build and debug active file",
+      "name": "Batch Test",
       "type": "cppdbg",
       "request": "launch",
       "program": "${fileDirname}\\${fileBasenameNoExtension}.exe",
-      "args": ["-lpthread"],
+      "args": [
+        "44", // Number of threads to use
+        "100",  // Array size
+        "0.01", // Level of Precision
+        "100",  // Number of tests
+        "0" // Should print array
+      ],
+      "stopAtEntry": false,
+      "cwd": "${fileDirname}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "C:\\msys64\\mingw64\\bin\\gdb.exe",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Set Disassembly Flavor to Intel",
+          "text": "-gdb-set disassembly-flavor intel",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "C/C++: gcc.exe build active file"
+    },
+    {
+      "name": "Single Test",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${fileDirname}\\${fileBasenameNoExtension}.exe",
+      "args": [
+        "5", // Number of threads to use
+        "12",  // Array size
+        "0.01", // Level of Precision
+        "0",  // Number of tests
+        "1" // Should print array
+      ],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",
       "environment": [],
