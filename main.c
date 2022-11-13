@@ -4,7 +4,7 @@
  * @brief Computes the average of four neighboring cells for each element in a
  *        2D-array. Repeats this process until the difference between the
  *        previous average and current average is less than a given level of
- *        precision.
+ *        g_precision.
  * @version 0.1
  * @date 2022-11-07
  * 
@@ -21,31 +21,14 @@
 #include <math.h>
 #include <time.h>
 
-/**
- * @brief Struct of arguments to be passed to a thread on creation.
- *  array_size              (unsigned int)  Size of the array,
- *  thread_num              (unsigned int)  Thread index,
- *  elements_per_thread     (int)           Number of rows the thread must compute,
- *  ptr_g_num_of_iterations (int)           The number of loop iterations it takes
- *                                          for a thread to reach the given precision
- *                                          level,
- *  ptr_g_is_precise        (*int)          Pointer to global precision value,
- *  precision               (double)        Precision of results,
- *  ptr_output              (*double)       Pointer to the output array,
- *  ptr_input               (*double)       Pointer to the input array.
- */
-struct thread_args {
-  unsigned int array_size;
-  unsigned int thread_num;
-  unsigned int elements_per_thread;
-  int *ptr_g_num_of_iterations;
-  int *ptr_g_is_precise;
-  double precision;
-  double *ptr_output;
-  double *ptr_input;
-};
-
 pthread_barrier_t barrier;
+unsigned int g_array_size;
+unsigned int g_elements_per_thread;
+int g_num_of_iterations;
+int g_is_precise;
+double g_precision;
+double *ptr_p_output_arr;
+double *ptr_p_input_arr;
 
 /**
  * @brief  Calculates the average of each cells four neighbors in a 2D-array
@@ -82,16 +65,16 @@ int run_program(
  * Function to be run on set number of threads.
  * 
  * @param args The stuct of arguments to be given to each thread;
- *  array_size              (unsigned int)  Size of the array,
+ *  g_array_size              (unsigned int)  Size of the array,
  *  thread_num              (unsigned int)  Thread index,
- *  elements_per_thread     (int)           Number of rows the thread must compute,
+ *  g_elements_per_thread     (int)           Number of rows the thread must compute,
  *  ptr_g_num_of_iterations (int)           The number of loop iterations it takes
  *                                          for a thread to reach the given precision
  *                                          level,
  *  ptr_g_is_precise        (*int)          Pointer to global precision value,
- *  precision               (double)        Precision of results,
- *  ptr_output              (*double)       Pointer to the output array,
- *  ptr_input               (*double)       Pointer to the input array.
+ *  g_precision               (double)        Precision of results,
+ *  ptr_output_arr              (*double)       Pointer to the output array,
+ *  ptr_input_arr               (*double)       Pointer to the input array.
  * @return void* 
  */
 void calculate_average_of_neighbors(
@@ -116,7 +99,7 @@ void populate_array(
  * @param in_arr     (*double)        pointer to a square 2D-array,
  * @param out_arr    (*double)        pointer to a square 2D-array,
  * @param size       (unsigned int)   size of the array (one-dimension),
- * @param precision  (double)         Level of precision to reach.
+ * @param g_precision  (double)         Level of precision to reach.
  * 
  * @return (bool) Whether the pointers to the input arrays need to be swapped.
  */
@@ -385,20 +368,15 @@ int run_program(
 
   // Allocate the space in memory for the input and out arrays
   // and populates them.
-  double *ptr_input_array = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
-  double *ptr_output_array = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
-  populate_array(ptr_input_array, ARRAY_SIZE);
-  populate_array(ptr_output_array, ARRAY_SIZE);
-
-  // Calculates the number of rows each thread will be given.
-  unsigned int elements_per_thread = (unsigned int)ceil(
-    ((float)(ARRAY_SIZE * (ARRAY_SIZE - 2))) / (float)NUM_OF_THREADS
-  );
+  ptr_p_input_arr = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
+  ptr_p_output_arr = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
+  populate_array(ptr_p_input_arr, ARRAY_SIZE);
+  populate_array(ptr_p_output_arr, ARRAY_SIZE);
 
   // Allocate memory for the specified number of threads are corresponding
   // arguments required by each thread.
   pthread_t *threads = malloc(NUM_OF_THREADS * sizeof(pthread_t));
-  struct thread_args *thread_arguments = malloc(NUM_OF_THREADS * sizeof(struct thread_args));
+  unsigned int *thread_indexes = malloc(NUM_OF_THREADS * sizeof(unsigned int));
 
   // Initialises the barrier to synchronize each thread after the average of the
   // four neighbors of each cell in the whole array has been calculated.
@@ -408,39 +386,41 @@ int run_program(
     return 0;
   }
 
+  
+  // Calculates the number of rows each thread will be given.
+  g_elements_per_thread = (unsigned int)ceil(
+    ((float)(ARRAY_SIZE * (ARRAY_SIZE - 2))) / (float)NUM_OF_THREADS
+  );
+
+  g_precision = PRECISION;
+  g_array_size = ARRAY_SIZE;
+
   // Assume the output result already has acceptable precision so if an
   // unacceptable precision occurs, this value can be changed.
-  int g_is_precise = 1;
+  g_is_precise = 1;
 
   // Global value of the number of iterations each thread took to compute to
   // the given level of precision. Will be used to swap the pointers to the
   // input and output arrays if required.
-  int g_num_of_iterations = 0;
+  g_num_of_iterations = 0;
 
   // Loops over each thread, creates each thread, and passes in the function
   // and arguments as a struct.
-  for (unsigned int create_thread_num = 0; create_thread_num < NUM_OF_THREADS; create_thread_num++) {
+  for (unsigned int thread_index = 0; thread_index < NUM_OF_THREADS; thread_index++) {
     // Creates a stuct of arguments unique to each thread.
-    thread_arguments[create_thread_num].array_size = ARRAY_SIZE;
-    thread_arguments[create_thread_num].thread_num = create_thread_num;
-    thread_arguments[create_thread_num].elements_per_thread = elements_per_thread;
-    thread_arguments[create_thread_num].precision = PRECISION;
-    thread_arguments[create_thread_num].ptr_input = ptr_input_array;
-    thread_arguments[create_thread_num].ptr_output = ptr_output_array;
-    thread_arguments[create_thread_num].ptr_g_is_precise = &g_is_precise;
-    thread_arguments[create_thread_num].ptr_g_num_of_iterations = &g_num_of_iterations;
+    thread_indexes[thread_index] = thread_index;
 
     // Creates the thread and passes in the function to fun and the arguments for that function
     pthread_create(
-      &threads[create_thread_num],
+      &threads[thread_index],
       NULL,
       (void (*))(void *)calculate_average_of_neighbors,
-      &thread_arguments[create_thread_num]
+      &thread_indexes[thread_index]
     );
   }
   // Waits for each thread to finish execution
-  for (unsigned int join_thread_num = 0; join_thread_num < NUM_OF_THREADS; join_thread_num++) {
-    pthread_join(threads[join_thread_num], NULL);
+  for (unsigned int thread_index = 0; thread_index < NUM_OF_THREADS; thread_index++) {
+    pthread_join(threads[thread_index], NULL);
   }
 
   // Destroys barrier
@@ -450,8 +430,8 @@ int run_program(
   // the correct answer ad reduce data races when calculating a second set of 
   // averages.
   if ((g_num_of_iterations % 2) == 1) {
-    free(ptr_output_array);
-    ptr_output_array = ptr_input_array;
+    free(ptr_p_output_arr);
+    ptr_p_output_arr = ptr_p_input_arr;
   }
 
   // Records end time.
@@ -471,14 +451,14 @@ int run_program(
   // Prints the arrays if stated to do so
   if (PRINT_ARRAY == 1) {
     printf("Input Array:\n");
-    print_array(ptr_input_array, ARRAY_SIZE);
+    print_array(ptr_p_input_arr, ARRAY_SIZE);
     printf("\nOutput Array:\n");
-    print_array(ptr_output_array, ARRAY_SIZE);
+    print_array(ptr_p_output_arr, ARRAY_SIZE);
     printf("\nExpected Array:\n");
     print_array(ptr_s_input_arr, ARRAY_SIZE);
   }
 
-  int has_passed = is_expected_outcome(ptr_output_array, ptr_s_input_arr, ARRAY_SIZE);
+  int has_passed = is_expected_outcome(ptr_p_output_arr, ptr_s_input_arr, ARRAY_SIZE);
 
   if (is_switched == 0) {
     free(ptr_s_output_arr);
@@ -486,12 +466,12 @@ int run_program(
     free(ptr_s_input_arr);
   }
   if ((g_num_of_iterations % 2) == 1) {
-    free(ptr_input_array);
+    free(ptr_p_input_arr);
   } else {
-    free(ptr_output_array);
+    free(ptr_p_output_arr);
   }
   free(threads);
-  free(thread_arguments);
+  free(thread_indexes);
   
   return has_passed;
 }
@@ -508,38 +488,30 @@ int run_program(
  * Function to be run on set number of threads.
  * 
  * @param args The stuct of arguments to be given to each thread;
- *  array_size              (unsigned int)  Size of the array,
+ *  g_array_size              (unsigned int)  Size of the array,
  *  thread_num              (unsigned int)  Thread index,
- *  elements_per_thread     (int)           Number of rows the thread must compute,
+ *  g_elements_per_thread     (int)           Number of rows the thread must compute,
  *  ptr_g_num_of_iterations (int)           The number of loop iterations it takes
  *                                          for a thread to reach the given precision
  *                                          level,
  *  ptr_g_is_precise        (*int)          Pointer to global precision value,
- *  precision               (double)        Precision of results,
- *  ptr_output              (*double)       Pointer to the output array,
- *  ptr_input               (*double)       Pointer to the input array.
+ *  g_precision               (double)        Precision of results,
+ *  ptr_output_arr              (*double)       Pointer to the output array,
+ *  ptr_input_arr               (*double)       Pointer to the input array.
  * @return void* 
  */
 void calculate_average_of_neighbors(
   void *args
 ) {
   // Extracts the passed in structs values.
-  struct thread_args *current_arguments = (struct thread_args*)args;
-
-  const unsigned int ARRAY_SIZE = (*current_arguments).array_size;
-  const unsigned int ELEMENTS_PER_THREAD = (*current_arguments).elements_per_thread;
-  const unsigned int THREAD_NUM = (*current_arguments).thread_num;
-  const double PRECISION = (*current_arguments).precision;
-
-  // Gets the pointer to the global number of iterations.
-  int *ptr_g_num_of_iterations = (*current_arguments).ptr_g_num_of_iterations;
+  unsigned int THREAD_IDX = *((unsigned int*)args);
 
   // Gets the pointers to the input and output arrays.
-  double *ptr_array_1 = (*current_arguments).ptr_output;
-  double *ptr_array_2 = (*current_arguments).ptr_input;
+  double *ptr_array_1 = ptr_p_output_arr;
+  double *ptr_array_2 = ptr_p_input_arr;
 
   // Calculates the index of the input array to start at.
-  const unsigned int START_IDX = (THREAD_NUM * ELEMENTS_PER_THREAD) + ARRAY_SIZE;
+  const unsigned int START_IDX = (THREAD_IDX * g_elements_per_thread) + g_array_size;
 
   // initialises the local number of iterations.
   int l_number_of_iterations = 0;
@@ -561,26 +533,26 @@ void calculate_average_of_neighbors(
 
 
     // Checks to see if the starting index is within the bounds of the array.
-    if (START_IDX < (ARRAY_SIZE * (ARRAY_SIZE - 1))) {
+    if (START_IDX < (g_array_size * (g_array_size - 1))) {
       // Loops over each cells in the specified number of rows and calculates
       // the average of the cells four neighbors.
-      for (unsigned int col_idx = 0; col_idx < ELEMENTS_PER_THREAD; col_idx++) {
+      for (unsigned int col_idx = 0; col_idx < g_elements_per_thread; col_idx++) {
 
         // Calculates the index of the cells relative the array as a whole.
         unsigned int idx = START_IDX + col_idx;
         
         // Checks if index is out of the array bounds.
-        if (idx >= (ARRAY_SIZE * (ARRAY_SIZE - 1))) { break; }
+        if (idx >= (g_array_size * (g_array_size - 1))) { break; }
 
         // Checks if there are four neighbors.
-        if (((idx % ARRAY_SIZE) == (ARRAY_SIZE - 1)) || ((idx % ARRAY_SIZE) == 0)) { continue; }
+        if (((idx % g_array_size) == (g_array_size - 1)) || ((idx % g_array_size) == 0)) { continue; }
 
         // Calculates the average of the four neighbors
         double accumulator = 0;
         double val_1 = ptr_array_1[idx - 1];
         double val2 = ptr_array_1[idx + 1];
-        double val3 = ptr_array_1[idx - ARRAY_SIZE];
-        double val4 = ptr_array_1[idx + ARRAY_SIZE];
+        double val3 = ptr_array_1[idx - g_array_size];
+        double val4 = ptr_array_1[idx + g_array_size];
         accumulator += (val_1 + val2 + val3 + val4);
         double average = accumulator / 4;
         
@@ -588,7 +560,7 @@ void calculate_average_of_neighbors(
         // changed and if that change is less than the precision.
         double current_val = ptr_array_1[idx];
         double difference = fabs(current_val - average);
-        if (difference >= PRECISION) {
+        if (difference >= g_precision) {
           // This value does not have a high enough level of precision.
           l_is_precise = 0;
         }
@@ -601,7 +573,7 @@ void calculate_average_of_neighbors(
     // update global precision value if this thread has not reached the
     // required level of precision.
     if (l_is_precise == 0) {
-      *(*current_arguments).ptr_g_is_precise = l_is_precise;
+      g_is_precise = l_is_precise;
     }
 
     // Increment the number of iterations.  All l_number_of_iterations should
@@ -612,12 +584,12 @@ void calculate_average_of_neighbors(
     // is required. However, all threads must sync before hand to prevent
     // any data races.
     pthread_barrier_wait(&barrier);
-    l_is_precise = *(*current_arguments).ptr_g_is_precise;
+    l_is_precise = g_is_precise;
 
     // After the value is read by every thread, the value needs to be over-
     // written.
     pthread_barrier_wait(&barrier);
-    *(*current_arguments).ptr_g_is_precise = 1;
+    g_is_precise = 1;
     
     // Threads need to sync for a third time to ensure the global precision
     // value is not written to before being overwritten by another threads.
@@ -625,7 +597,7 @@ void calculate_average_of_neighbors(
   }
   // Due to the threads, l_number_of_iterations will be the same value on each
   // thread therefore no data race condition.
-  *ptr_g_num_of_iterations = l_number_of_iterations;
+  g_num_of_iterations = l_number_of_iterations;
 }
 
 
@@ -666,7 +638,7 @@ void populate_array(
  * @param in_arr     (*double)      pointer to a square 2D-array,
  * @param out_arr    (*double)      pointer to a square 2D-array,
  * @param size       (unsigned int) size of the array (one-dimension),
- * @param precision  (double)       Level of precision to reach.
+ * @param g_precision  (double)       Level of g_precision to reach.
  * 
  * @return (int) Whether the pointers to the input arrays need to be swapped.
  */

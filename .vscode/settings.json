@@ -1,6 +1,8 @@
 {
   "files.associations": {
-    "cmath": "c"
+    "cmath": "c",
+    "compare": "c",
+    "limits": "c"
   },
   "C_Cpp.errorSquiggles": "Enabled"
 }
