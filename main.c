@@ -226,6 +226,7 @@ int main(
   }
 
   // Determines if there is going to be a batch test or not.
+  printf("Number of Threads,\tPass/Fail,\tSequential Time,\tParallel Time\n");
   if (NUM_OF_TESTS == 0) {
     // No Batch test.
 
@@ -244,16 +245,13 @@ int main(
 
     // Prints some statistics of the operation of the program.
     printf("Thread Num: %d\t", NUM_OF_THREADS);
-    if (has_passed == 0) {
-      printf("TEST: \033[0;31m FAILED\t\033[0m");
-    } else {
-      printf("TEST: \033[0;32m PASSED\t\033[0m");
-    }
-    printf(
-      "\tSequential Time: %f\tParallel Time: %f\n",
-      sequential_time,
-      parallel_time
-    );
+      printf("%d,\t", NUM_OF_THREADS);
+      if (has_passed == 0) {
+        printf("\033[0;31m FAILED\033[0m,\t");
+      } else {
+        printf("\033[0;32m PASSED\033[0m,\t");
+      }
+      printf("%f,\t%f\n", sequential_time, parallel_time);
 
   } else if (NUM_OF_TESTS > 0) {
     // Batch test will occur with a given number of tests.
@@ -300,13 +298,13 @@ int main(
       average_parallel_time /= NUM_OF_TESTS;
 
       // Prints some statistics of the operation of the program.
-      printf("Number of Threads: %d\t", thread_num);
+      printf("%d,\t", thread_num);
       if (average_has_passed == 0) {
-        printf("TEST: \033[0;31m FAILED\033[0m\t");
+        printf("\033[0;31m FAILED\033[0m,\t");
       } else {
-        printf("TEST: \033[0;32m PASSED\033[0m\t");
+        printf("\033[0;32m PASSED\033[0m,\t");
       }
-      printf("Sequential Time: %f\tParallel Time: %f\n", average_sequential_time, average_parallel_time);
+      printf("%f,\t%f\n", average_sequential_time, average_parallel_time);
     }
   }
 
