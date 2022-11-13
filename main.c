@@ -247,9 +247,9 @@ int main(
     printf("Thread Num: %d\t", NUM_OF_THREADS);
       printf("%d,\t", NUM_OF_THREADS);
       if (has_passed == 0) {
-        printf("\033[0;31m FAILED\033[0m,\t");
+        printf("FAILED,\t");
       } else {
-        printf("\033[0;32m PASSED\033[0m,\t");
+        printf("PASSED,\t");
       }
       printf("%f,\t%f\n", sequential_time, parallel_time);
 
@@ -300,9 +300,9 @@ int main(
       // Prints some statistics of the operation of the program.
       printf("%d,\t", thread_num);
       if (average_has_passed == 0) {
-        printf("\033[0;31m FAILED\033[0m,\t");
+        printf("FAILED,\t");
       } else {
-        printf("\033[0;32m PASSED\033[0m,\t");
+        printf("PASSED,\t");
       }
       printf("%f,\t%f\n", average_sequential_time, average_parallel_time);
     }
