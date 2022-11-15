@@ -43,7 +43,7 @@ double **pptr_p_input_arr;
  *                                            should be printed.
  * @param ptr_sequential_time (*double)       Points to the time it takes for the
  *                                            sequential part of the program to run.
- * @param ptr_parallel_time   (*double)       Points to the time it takes for the
+ * @param ptr_parallel_part_time   (*double)       Points to the time it takes for the
  *                                            parallel part of the program to run.
  * @return (int) 1 if the function produced the correct answer, 0 otherwise.
  */
@@ -53,7 +53,8 @@ int run_program(
   double PRECISION,
   int PRINT_ARRAY,
   double *ptr_sequential_time,
-  double *ptr_parallel_time
+  double *ptr_sequential_part_time,
+  double *ptr_parallel_part_time
 );
 
 /**
@@ -201,7 +202,8 @@ int main(
 
     // Sets the values for the sequential and parallel times of the program to 0.
     double sequential_time = 0.;
-    double parallel_time = 0.;
+    double sequential_part_time = 0.;
+    double parallel_part_time = 0.;
     // Runs the program and returns either a 1 or a 0 if the output produced
     // the correct answer or not respectively.
     int has_passed = run_program(
@@ -210,17 +212,18 @@ int main(
       PRECISION,
       PRINT_ARRAY,
       &sequential_time,
-      &parallel_time);
+      &sequential_part_time,
+      &parallel_part_time);
 
     // Prints some statistics of the operation of the program.
-    printf("Number of Threads,\tPass/Fail,\tSequential Time,\tParallel Time\n");
+    printf("Number of Threads,\tPass/Fail,\tSequential Time,\tSequential Part Time,\tParallel Part Time\n");
     printf("%d,\t", NUM_OF_THREADS);
     if (has_passed == 0) {
       printf("FAILED,\t");
     } else {
       printf("PASSED,\t");
     }
-    printf("%f,\t%f\n", sequential_time, parallel_time);
+    printf("%f,\t%f,\t%f\n", sequential_time, sequential_part_time, parallel_part_time);
 
   } else if (TEST_TYPE == 1) {
     // Batch test will occur with a given number of tests.
@@ -230,12 +233,13 @@ int main(
     // record the results to a CSV file.
 
     // Performs the batch testing.
-    printf("Number of Threads,\tPass/Fail,\tSequential Time,\tParallel Time\n");
+    printf("Number of Threads,\tPass/Fail,\tSequential Time,\tSequential Part Time,\tParallel Time\n");
     for(unsigned int thread_num = 1; thread_num <= NUM_OF_THREADS; thread_num++) {
       // Defines the variables to record the average runtime of the
       // sequential and parallel parts of the code.
       double average_sequential_time = 0.;
-      double average_parallel_time = 0.;
+      double average_sequential_part_time = 0.;
+      double average_parallel_part_time = 0.;
 
       // Sets the average pass rate; assumes all tests will pass. If one test
       // fails, the batch test for that given number of threads will have failed.
@@ -244,7 +248,8 @@ int main(
       // Executes the given number of tests on each number of threads.
       for(int test_num = 0; test_num < NUM_OF_TESTS; test_num++) {
         double sequential_time = 0.;
-        double parallel_time = 0.;
+        double sequential_part_time = 0.;
+        double parallel_part_time = 0.;
 
         // Executes the program.
         int has_passed = run_program(
@@ -253,19 +258,22 @@ int main(
           PRECISION,
           PRINT_ARRAY,
           &sequential_time,
-          &parallel_time
+          &sequential_part_time,
+          &parallel_part_time
         );
 
         if (has_passed == 0) {
           average_has_passed = 0;
         }
 
-        average_parallel_time += parallel_time;
+        average_parallel_part_time += parallel_part_time;
+        average_sequential_part_time += sequential_part_time;
         average_sequential_time += sequential_time;
       }
       // Calculates the average sequential and parallel runtimes of all the tests
       average_sequential_time /= NUM_OF_TESTS;
-      average_parallel_time /= NUM_OF_TESTS;
+      average_sequential_part_time /= NUM_OF_TESTS;
+      average_parallel_part_time /= NUM_OF_TESTS;
 
       // Prints some statistics of the operation of the program.
       printf("%d,\t", thread_num);
@@ -274,11 +282,11 @@ int main(
       } else {
         printf("PASSED,\t");
       }
-      printf("%f,\t%f\n", average_sequential_time, average_parallel_time);
+      printf("%f,\t%f,\t%f\n", average_sequential_time,average_sequential_part_time, average_parallel_part_time);
     }
   } else if (TEST_TYPE == 2) {
     // Performs the batch testing.
-    printf("Precision,\tPass/Fail,\tSequential Time,\tParallel Time\n");
+    printf("Precision,\tPass/Fail,\tSequential Time,\tSequential Part Time,\tParallel Time\n");
     double max_exponent = fabs(log10(PRECISION));
     for(double exponent = 1; exponent <= max_exponent; exponent++) {
       for (double i = 9; i > 0; i--) {
@@ -286,7 +294,8 @@ int main(
         // Defines the variables to record the average runtime of the
         // sequential and parallel parts of the code.
         double average_sequential_time = 0.;
-        double average_parallel_time = 0.;
+        double average_sequential_part_time = 0.;
+        double average_parallel_part_time = 0.;
 
         // Sets the average pass rate; assumes all tests will pass. If one test
         // fails, the batch test for that given number of threads will have failed.
@@ -295,7 +304,8 @@ int main(
         // Executes the given number of tests on each number of threads.
         for(int test_num = 0; test_num < NUM_OF_TESTS; test_num++) {
           double sequential_time = 0.;
-          double parallel_time = 0.;
+          double sequential_part_time = 0.;
+          double parallel_part_time = 0.;
 
           // Executes the program.
           int has_passed = run_program(
@@ -304,17 +314,20 @@ int main(
             precision,
             PRINT_ARRAY,
             &sequential_time,
-            &parallel_time
+            &sequential_part_time,
+            &parallel_part_time
           );
           if (has_passed == 0) {
             average_has_passed = 0;
           }
-          average_parallel_time += parallel_time;
+          average_parallel_part_time += parallel_part_time;
+          average_sequential_part_time += sequential_part_time;
           average_sequential_time += sequential_time;
         }
         // Calculates the average sequential and parallel runtimes of all the tests
         average_sequential_time /= NUM_OF_TESTS;
-        average_parallel_time /= NUM_OF_TESTS;
+        average_sequential_part_time /= NUM_OF_TESTS;
+        average_parallel_part_time /= NUM_OF_TESTS;
 
         // Prints some statistics of the operation of the program.
         printf("%f,\t", precision);
@@ -323,12 +336,12 @@ int main(
         } else {
           printf("PASSED,\t");
         }
-        printf("%f,\t%f\n", average_sequential_time, average_parallel_time);
+        printf("%f,\t%f,\t%f\n", average_sequential_time, average_sequential_part_time, average_parallel_part_time);
       }
     }
   } else if (TEST_TYPE == 3) {
     // Performs the batch testing.
-    printf("Array Size,\tPass/Fail,\tSequential Time,\tParallel Time\n");
+    printf("Array Size,\tPass/Fail,\tSequential Time,\tSequential Part Time,\tParallel Time\n");
     double max_exponent = fabs(log10(ARRAY_SIZE));
     for(double exponent = 1; exponent <= max_exponent; exponent++) {
       for (unsigned int i = 1; i < 10; i ++) {
@@ -336,7 +349,8 @@ int main(
         // Defines the variables to record the average runtime of the
         // sequential and parallel parts of the code.
         double average_sequential_time = 0.;
-        double average_parallel_time = 0.;
+        double average_sequential_part_time = 0.;
+        double average_parallel_part_time = 0.;
 
         // Sets the average pass rate; assumes all tests will pass. If one test
         // fails, the batch test for that given number of threads will have failed.
@@ -345,7 +359,8 @@ int main(
         // Executes the given number of tests on each number of threads.
         for(int test_num = 0; test_num < NUM_OF_TESTS; test_num++) {
           double sequential_time = 0.;
-          double parallel_time = 0.;
+          double sequential_part_time = 0.;
+          double parallel_part_time = 0.;
 
           // Executes the program.
           int has_passed = run_program(
@@ -354,17 +369,20 @@ int main(
             PRECISION,
             PRINT_ARRAY,
             &sequential_time,
-            &parallel_time
+            &sequential_part_time,
+            &parallel_part_time
           );
           if (has_passed == 0) {
             average_has_passed = 0;
           }
-          average_parallel_time += parallel_time;
+          average_parallel_part_time += parallel_part_time;
+          average_sequential_part_time += sequential_part_time;
           average_sequential_time += sequential_time;
         }
         // Calculates the average sequential and parallel runtimes of all the tests
         average_sequential_time /= NUM_OF_TESTS;
-        average_parallel_time /= NUM_OF_TESTS;
+        average_sequential_part_time /= NUM_OF_TESTS;
+        average_parallel_part_time /= NUM_OF_TESTS;
 
         // Prints some statistics of the operation of the program.
         printf("%d,\t", array_size);
@@ -373,7 +391,7 @@ int main(
         } else {
           printf("PASSED,\t");
         }
-        printf("%f,\t%f\n", average_sequential_time, average_parallel_time);
+        printf("%f,\t%f,\t%f\n", average_sequential_time, average_sequential_part_time, average_parallel_part_time);
       }
     }
   }
@@ -399,7 +417,7 @@ int main(
  *                                            should be printed.
  * @param ptr_sequential_time (*double)       Points to the time it takes for the
  *                                            sequential part of the program to run.
- * @param ptr_parallel_time   (*double)       Points to the time it takes for the
+ * @param ptr_parallel_part_time   (*double)       Points to the time it takes for the
  *                                            parallel part of the program to run.
  * @return (int) 1 if the function produced the correct answer, 0 otherwise.
  */
@@ -409,7 +427,8 @@ int run_program(
   double PRECISION,
   int PRINT_ARRAY,
   double *ptr_sequential_time,
-  double *ptr_parallel_time
+  double *ptr_sequential_part_time,
+  double *ptr_parallel_part_time
 ) {
   // ==========================================================================
   // =================== Runs the program sequentially ========================
@@ -443,7 +462,7 @@ int run_program(
   // ==========================================================================
   
   // Records start time
-  clock_t parallel_time_start = clock();
+  clock_t sequential_part_time_1_start = clock();
 
   // Allocate the space in memory for the input and out arrays
   // and populates them.
@@ -481,6 +500,9 @@ int run_program(
   // unacceptable precision occurs, this value can be changed.
   g_is_precise = 1;
 
+  clock_t sequential_part_time_1_end = clock();
+  clock_t parallel_part_time_start = clock();
+
   // Loops over each thread, creates each thread, and passes in the function
   // and arguments as a struct.
   for (unsigned int thread_index = 0; thread_index < NUM_OF_THREADS; thread_index++) {
@@ -499,6 +521,8 @@ int run_program(
   for (unsigned int thread_index = 0; thread_index < NUM_OF_THREADS; thread_index++) {
     pthread_join(threads[thread_index], NULL);
   }
+  clock_t parallel_part_time_end = clock();
+  clock_t sequential_part_time_2_start = clock();
 
   // Destroys barrier
   pthread_barrier_destroy(&barrier);
@@ -510,10 +534,14 @@ int run_program(
   ptr_p_output_arr = *pptr_p_output_arr;
 
   // Records end time.
-  clock_t parallel_time_end = clock();
+  clock_t sequential_part_time_2_end = clock();
 
   // Calculates difference in time
-  *ptr_parallel_time = (double)(parallel_time_end - parallel_time_start) / CLOCKS_PER_SEC;
+  *ptr_sequential_part_time = (
+    ((double)(sequential_part_time_1_end - sequential_part_time_1_start) / CLOCKS_PER_SEC) +
+    ((double)(sequential_part_time_2_end - sequential_part_time_2_start) / CLOCKS_PER_SEC)
+  );
+  *ptr_parallel_part_time = (double)(parallel_part_time_end - parallel_part_time_start) / CLOCKS_PER_SEC;
 
 
 
