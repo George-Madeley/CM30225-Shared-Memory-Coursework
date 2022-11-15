@@ -5,8 +5,26 @@
  *        2D-array. Repeats this process until the difference between the
  *        previous average and current average is less than a given level of
  *        g_precision.
+ * 
+ *        To run the program, the program requires the following arguments in
+ *        the following order:
+ *        1)  (int) Number of threads to use,
+ *        2)  (int) Size of the array,
+ *        3)  (double) The level of precision,
+ *        4)  (int) Number of tests to run (optional, default: 0),
+ *        5)  (int) The type of test to run:  (optional, default: 0)
+ *                  0: Run the program once,
+ *                  1: Test each thread starting from 0 to the specified number
+ *                     of threads,
+ *                  2: Test for each level of precision starting at 0.9 to the
+ *                     specified level of precision decreasing logarithmically,
+ *                  3: Test for each array size starting at 10 to the specified
+ *                     array size increasing logarithmically.
+ *        6)  (int) Whether to print the input and output arrays: (optional, default: 0)
+ *                  0: Don't print the arrays.
+ *                  1: Print the arrays.
  * @version 0.1
- * @date 2022-11-07
+ * @date 2022-11-16
  * 
  * @bug No known bugs
  * 
@@ -35,20 +53,26 @@ double **pptr_p_input_arr;
  * @brief  Calculates the average of each cells four neighbors in a 2D-array
  *         and stores the values in an output 2D-array.
  * 
- * @param NUM_OF_THREADS      (unsigned int)  The number of threads to use to run
- *                                            the program,
- * @param ARRAY_SIZE          (unsigned int)  The size of the input array.
- * @param PRECISION           (double)        The level of precision for the output.
- * @param PRINT_ARRAY         (int)           If the input and output arras
- *                                            should be printed.
- * @param ptr_sequential_time (*double)       Points to the time it takes for the
- *                                            sequential part of the program to run.
- * @param ptr_parallel_part_time   (*double)       Points to the time it takes for the
- *                                            parallel part of the program to run.
+ * @param NUM_OF_THREADS            (unsigned int)  The number of threads to use
+ *                                                  to run the program,
+ * @param ARRAY_SIZE                (unsigned int)  The size of the input array.
+ * @param PRECISION                 (double)        The level of precision for the
+ *                                                  output.
+ * @param PRINT_ARRAY               (int)           If the input and output arras 
+ *                                                  should be printed.
+ * @param ptr_sequential_time       (*double)       Points to the time it takes for
+ *                                                  the sequential implementation 
+ *                                                  of the program to run.
+ * @param ptr_sequential_part_time  (*double)       Points to the time it takes for
+ *                                                  the sequential part of the program
+ *                                                  to run.
+ * @param ptr_parallel_part_time    (*double)       Points to the time it takes for
+ *                                                  the parallel part of the program
+ *                                                  to run.
  * @return (int) 1 if the function produced the correct answer, 0 otherwise.
  */
 int run_program(
-  unsigned intNUM_OF_THREADS, 
+  unsigned int NUM_OF_THREADS, 
   unsigned int ARRAY_SIZE, 
   double PRECISION,
   int PRINT_ARRAY,
@@ -156,6 +180,14 @@ void print_array(
  *                      given number of threads, if > 0, program will run those
  *                      given number of times using every number of threads up
  *                      to and including the given number of threads.
+ *  5)  (int)           The type of test to run:
+*                        0: Run the program once,
+*                        1: Test each thread starting from 0 to the specified number
+*                           of threads,
+*                        2: Test for each level of precision starting at 0.9 to the
+*                           specified level of precision decreasing logarithmically,
+*                        3: Test for each array size starting at 10 to the specified
+*                           array size increasing logarithmically.
  *  5)  (int)           True if the program should print the input and output arrays.
  * 
  * @return int 
@@ -168,9 +200,6 @@ int main(
   // arguments have been provided.
   if (argc < 4) {
     printf("ERROR: You need atleast four arguments. You have provided %d.\n", argc);
-    printf("The program, number of threads, array size, and the number of\n");
-    printf("decimal places. There is an optional argument of 1 if you would\n");
-    printf("like to print the input and output arrays.\n");
     exit(0);
   }
 
@@ -196,9 +225,9 @@ int main(
     PRINT_ARRAY = atoi(argv[6]);
   }
 
-  // Determines if there is going to be a batch test or not.
+  // Determines the type of test to run.
   if (TEST_TYPE == 0) {
-    // No Batch test.
+    // Just once the program with the given values.
 
     // Sets the values for the sequential and parallel times of the program to 0.
     double sequential_time = 0.;
@@ -216,7 +245,7 @@ int main(
       &parallel_part_time);
 
     // Prints some statistics of the operation of the program.
-    printf("Number of Threads,\tPass/Fail,\tSequential Time,\tSequential Part Time,\tParallel Part Time\n");
+    printf("Number of Threads,\tPass/Fail,\tSequential Time (s),\tSequential Part Time (s),\tParallel Part Time (s)\n");
     printf("%d,\t", NUM_OF_THREADS);
     if (has_passed == 0) {
       printf("FAILED,\t");
@@ -227,13 +256,13 @@ int main(
 
   } else if (TEST_TYPE == 1) {
     // Batch test will occur with a given number of tests.
-    // In a batch test, the tester code will run the program on 1 thread, then
+    // The tester code will run the program on 1 thread, then
     // 2, then 3 and so on until it has reached the given number of threads
     // to use. The tester will run a given number of tests for each thread and
-    // record the results to a CSV file.
+    // print the results using CSV notation.
 
     // Performs the batch testing.
-    printf("Number of Threads,\tPass/Fail,\tSequential Time,\tSequential Part Time,\tParallel Time\n");
+    printf("Number of Threads,\tPass/Fail,\tSequential Time (s),\tSequential Part Time (s),\tParallel Part Time (s)\n");
     for(unsigned int thread_num = 1; thread_num <= NUM_OF_THREADS; thread_num++) {
       // Defines the variables to record the average runtime of the
       // sequential and parallel parts of the code.
@@ -285,8 +314,13 @@ int main(
       printf("%f,\t%f,\t%f\n", average_sequential_time,average_sequential_part_time, average_parallel_part_time);
     }
   } else if (TEST_TYPE == 2) {
-    // Performs the batch testing.
-    printf("Precision,\tPass/Fail,\tSequential Time,\tSequential Part Time,\tParallel Time\n");
+    // Batch test will occur with a given number of tests.
+    // The tester code will run the program on 0.9 precision level, then
+    // 0.8, then 0.7 and continue to decrease logarithmically until it has
+    // reached the given level of precision to use. The tester will run a
+    // given number of tests for each precision level and print the results
+    // using CSV notation.
+    printf("Precision,\tPass/Fail,\tSequential Time (s),\tSequential Part Time (s),\tParallel Part Time (s)\n");
     double max_exponent = fabs(log10(PRECISION));
     for(double exponent = 1; exponent <= max_exponent; exponent++) {
       for (double i = 9; i > 0; i--) {
@@ -340,8 +374,13 @@ int main(
       }
     }
   } else if (TEST_TYPE == 3) {
-    // Performs the batch testing.
-    printf("Array Size,\tPass/Fail,\tSequential Time,\tSequential Part Time,\tParallel Time\n");
+    // Batch test will occur with a given number of tests.
+    // The tester code will run the program on 10 array size, then
+    // 20, then 30 and continue to increase logarithmically until it has
+    // reached the given array size to use. The tester will run a
+    // given number of tests for each size and print the results using
+    // CSV notation.
+    printf("Array Size,\tPass/Fail,\tSequential Time (s),\tSequential Part Time (s),\tParallel Part Time (s)\n");
     double max_exponent = fabs(log10(ARRAY_SIZE));
     for(double exponent = 1; exponent <= max_exponent; exponent++) {
       for (unsigned int i = 1; i < 10; i ++) {
@@ -399,26 +438,26 @@ int main(
   exit(0);
 };
 
-
-
-
-
-
-
 /**
  * @brief  Calculates the average of each cells four neighbors in a 2D-array
  *         and stores the values in an output 2D-array.
  * 
- * @param NUM_OF_THREADS      (unsigned int)  The number of threads to use to run
- *                                            the program,
- * @param ARRAY_SIZE          (unsigned int)  The size of the input array.
- * @param PRECISION           (double)        The level of precision for the output.
- * @param PRINT_ARRAY         (int)           If the input and output arras
- *                                            should be printed.
- * @param ptr_sequential_time (*double)       Points to the time it takes for the
- *                                            sequential part of the program to run.
- * @param ptr_parallel_part_time   (*double)       Points to the time it takes for the
- *                                            parallel part of the program to run.
+ * @param NUM_OF_THREADS            (unsigned int)  The number of threads to use
+ *                                                  to run the program,
+ * @param ARRAY_SIZE                (unsigned int)  The size of the input array.
+ * @param PRECISION                 (double)        The level of precision for the
+ *                                                  output.
+ * @param PRINT_ARRAY               (int)           If the input and output arras 
+ *                                                  should be printed.
+ * @param ptr_sequential_time       (*double)       Points to the time it takes for
+ *                                                  the sequential implementation 
+ *                                                  of the program to run.
+ * @param ptr_sequential_part_time  (*double)       Points to the time it takes for
+ *                                                  the sequential part of the program
+ *                                                  to run.
+ * @param ptr_parallel_part_time    (*double)       Points to the time it takes for
+ *                                                  the parallel part of the program
+ *                                                  to run.
  * @return (int) 1 if the function produced the correct answer, 0 otherwise.
  */
 int run_program(
@@ -542,10 +581,6 @@ int run_program(
     ((double)(sequential_part_time_2_end - sequential_part_time_2_start) / CLOCKS_PER_SEC)
   );
   *ptr_parallel_part_time = (double)(parallel_part_time_end - parallel_part_time_start) / CLOCKS_PER_SEC;
-
-
-
-
   
   // ==========================================================================
   // ============================== Clean Up ==================================
@@ -556,7 +591,7 @@ int run_program(
     printf("Input Array:\n");
     print_array(ptr_p_input_arr, ARRAY_SIZE);
     printf("\nOutput Array:\n");
-    print_array(ptr_p_output_arr, ARRAY_SIZE);
+    print_array(ptr_p_output_arr, ARRAY_SIZE);  
     printf("\nExpected Array:\n");
     print_array(ptr_s_output_arr, ARRAY_SIZE);
   }
@@ -586,18 +621,8 @@ int run_program(
  * 
  * Function to be run on set number of threads.
  * 
- * @param args The stuct of arguments to be given to each thread;
- *  g_array_size              (unsigned int)  Size of the array,
- *  thread_num              (unsigned int)  Thread index,
- *  g_elements_per_thread     (int)           Number of rows the thread must compute,
- *  ptr_g_num_of_iterations (int)           The number of loop iterations it takes
- *                                          for a thread to reach the given precision
- *                                          level,
- *  ptr_g_is_precise        (*int)          Pointer to global precision value,
- *  g_precision               (double)        Precision of results,
- *  ptr_output_arr              (*double)       Pointer to the output array,
- *  ptr_input_arr               (*double)       Pointer to the input array.
- * @return void* 
+ * @param args  (unsigned int) The thread index relative to the program.
+ * @return      (void*) 
  */
 void calculate_average_of_neighbors(
   void *args
@@ -692,16 +717,6 @@ void calculate_average_of_neighbors(
   *pptr_p_output_arr = l_ptr_array_2;
   *pptr_p_input_arr = l_ptr_array_1;
 }
-
-
-
-
-
-
-
-
-
-
 
 /**
  * @brief Populates a given array with the initial starting values.

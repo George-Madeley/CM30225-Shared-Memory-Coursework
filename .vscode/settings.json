@@ -2,7 +2,9 @@
   "files.associations": {
     "cmath": "c",
     "compare": "c",
-    "limits": "c"
+    "limits": "c",
+    "*.tcc": "c",
+    "tuple": "c"
   },
   "C_Cpp.errorSquiggles": "Enabled"
 }
