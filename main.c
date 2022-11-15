@@ -65,18 +65,8 @@ int run_program(
  * 
  * Function to be run on set number of threads.
  * 
- * @param args The stuct of arguments to be given to each thread;
- *  g_array_size              (unsigned int)  Size of the array,
- *  thread_num              (unsigned int)  Thread index,
- *  g_elements_per_thread     (int)           Number of rows the thread must compute,
- *  ptr_g_num_of_iterations (int)           The number of loop iterations it takes
- *                                          for a thread to reach the given precision
- *                                          level,
- *  ptr_g_is_precise        (*int)          Pointer to global precision value,
- *  g_precision               (double)        Precision of results,
- *  ptr_output_arr              (*double)       Pointer to the output array,
- *  ptr_input_arr               (*double)       Pointer to the input array.
- * @return void* 
+ * @param args  (unsigned int) The thread index relative to the program.
+ * @return      (void*) 
  */
 void calculate_average_of_neighbors(
   void *args
@@ -97,16 +87,16 @@ void populate_array(
 /**
  * @brief Populates a given array with the expected outcome values.
  * 
- * @param in_arr     (*double)        pointer to a square 2D-array,
- * @param out_arr    (*double)        pointer to a square 2D-array,
- * @param size       (unsigned int)   size of the array (one-dimension),
- * @param g_precision  (double)         Level of precision to reach.
+ * @param pptr_in_arr   (**double)       pointer to pointer of the input array,
+ * @param pptr_out_arr  (**double)       pointer to pointer of the input array,
+ * @param size          (unsigned int)   size of the array (one-dimension),
+ * @param precision     (double)         Level of precision to reach.
  * 
- * @return (bool) Whether the pointers to the input arrays need to be swapped.
+ * @return (void)
  */
-int compute_sequentially(
-  double *in_arr,
-  double *out_arr,
+void compute_sequentially(
+  double **pptr_in_arr,
+  double **pptr_out_arr,
   unsigned int size,
   double precision
 );
@@ -187,31 +177,26 @@ int main(
   unsigned int NUM_OF_THREADS;
   unsigned int ARRAY_SIZE;
   double PRECISION;
-  int NUM_OF_TESTS;
-  int PRINT_ARRAY;
-  if (argc == 5) {
+  int NUM_OF_TESTS = 0;
+  int TEST_TYPE = 0;
+  int PRINT_ARRAY = 0;
+  if (argc >= 4) {
     NUM_OF_THREADS = (unsigned int)atoi(argv[1]);
     ARRAY_SIZE = (unsigned int)atoi(argv[2]);
     PRECISION = atof(argv[3]);
+  }
+  if (argc >= 5) {
     NUM_OF_TESTS = atoi(argv[4]);
-    PRINT_ARRAY = 0;
-  } else if (argc >= 6) {
-    NUM_OF_THREADS = (unsigned int)atoi(argv[1]);
-    ARRAY_SIZE = (unsigned int)atoi(argv[2]);
-    PRECISION = atof(argv[3]);
-    NUM_OF_TESTS = atoi(argv[4]);
-    PRINT_ARRAY = atoi(argv[5]);;
-  } else {
-    NUM_OF_THREADS = (unsigned int)atoi(argv[1]);
-    ARRAY_SIZE = (unsigned int)atoi(argv[2]);
-    PRECISION = atof(argv[3]);
-    NUM_OF_TESTS = 0;
-    PRINT_ARRAY = 0;
+  }
+  if (argc >= 6) {
+    TEST_TYPE = atoi(argv[5]);
+  }
+  if (argc >= 7) {
+    PRINT_ARRAY = atoi(argv[6]);
   }
 
   // Determines if there is going to be a batch test or not.
-  printf("Number of Threads,\tPass/Fail,\tSequential Time,\tParallel Time\n");
-  if (NUM_OF_TESTS == 0) {
+  if (TEST_TYPE == 0) {
     // No Batch test.
 
     // Sets the values for the sequential and parallel times of the program to 0.
@@ -228,16 +213,16 @@ int main(
       &parallel_time);
 
     // Prints some statistics of the operation of the program.
-    printf("Thread Num: %d\t", NUM_OF_THREADS);
-      printf("%d,\t", NUM_OF_THREADS);
-      if (has_passed == 0) {
-        printf("FAILED,\t");
-      } else {
-        printf("PASSED,\t");
-      }
-      printf("%f,\t%f\n", sequential_time, parallel_time);
+    printf("Number of Threads,\tPass/Fail,\tSequential Time,\tParallel Time\n");
+    printf("%d,\t", NUM_OF_THREADS);
+    if (has_passed == 0) {
+      printf("FAILED,\t");
+    } else {
+      printf("PASSED,\t");
+    }
+    printf("%f,\t%f\n", sequential_time, parallel_time);
 
-  } else if (NUM_OF_TESTS > 0) {
+  } else if (TEST_TYPE == 1) {
     // Batch test will occur with a given number of tests.
     // In a batch test, the tester code will run the program on 1 thread, then
     // 2, then 3 and so on until it has reached the given number of threads
@@ -245,6 +230,7 @@ int main(
     // record the results to a CSV file.
 
     // Performs the batch testing.
+    printf("Number of Threads,\tPass/Fail,\tSequential Time,\tParallel Time\n");
     for(unsigned int thread_num = 1; thread_num <= NUM_OF_THREADS; thread_num++) {
       // Defines the variables to record the average runtime of the
       // sequential and parallel parts of the code.
@@ -289,6 +275,106 @@ int main(
         printf("PASSED,\t");
       }
       printf("%f,\t%f\n", average_sequential_time, average_parallel_time);
+    }
+  } else if (TEST_TYPE == 2) {
+    // Performs the batch testing.
+    printf("Precision,\tPass/Fail,\tSequential Time,\tParallel Time\n");
+    double max_exponent = fabs(log10(PRECISION));
+    for(double exponent = 1; exponent <= max_exponent; exponent++) {
+      for (double i = 9; i > 0; i--) {
+        double precision = i / pow(10., exponent);
+        // Defines the variables to record the average runtime of the
+        // sequential and parallel parts of the code.
+        double average_sequential_time = 0.;
+        double average_parallel_time = 0.;
+
+        // Sets the average pass rate; assumes all tests will pass. If one test
+        // fails, the batch test for that given number of threads will have failed.
+        int average_has_passed = 1;
+
+        // Executes the given number of tests on each number of threads.
+        for(int test_num = 0; test_num < NUM_OF_TESTS; test_num++) {
+          double sequential_time = 0.;
+          double parallel_time = 0.;
+
+          // Executes the program.
+          int has_passed = run_program(
+            NUM_OF_THREADS,
+            ARRAY_SIZE,
+            precision,
+            PRINT_ARRAY,
+            &sequential_time,
+            &parallel_time
+          );
+          if (has_passed == 0) {
+            average_has_passed = 0;
+          }
+          average_parallel_time += parallel_time;
+          average_sequential_time += sequential_time;
+        }
+        // Calculates the average sequential and parallel runtimes of all the tests
+        average_sequential_time /= NUM_OF_TESTS;
+        average_parallel_time /= NUM_OF_TESTS;
+
+        // Prints some statistics of the operation of the program.
+        printf("%f,\t", precision);
+        if (average_has_passed == 0) {
+          printf("FAILED,\t");
+        } else {
+          printf("PASSED,\t");
+        }
+        printf("%f,\t%f\n", average_sequential_time, average_parallel_time);
+      }
+    }
+  } else if (TEST_TYPE == 3) {
+    // Performs the batch testing.
+    printf("Array Size,\tPass/Fail,\tSequential Time,\tParallel Time\n");
+    double max_exponent = fabs(log10(ARRAY_SIZE));
+    for(double exponent = 1; exponent <= max_exponent; exponent++) {
+      for (unsigned int i = 1; i < 10; i ++) {
+        unsigned int array_size = i * (unsigned int)pow(10, exponent);
+        // Defines the variables to record the average runtime of the
+        // sequential and parallel parts of the code.
+        double average_sequential_time = 0.;
+        double average_parallel_time = 0.;
+
+        // Sets the average pass rate; assumes all tests will pass. If one test
+        // fails, the batch test for that given number of threads will have failed.
+        int average_has_passed = 1;
+
+        // Executes the given number of tests on each number of threads.
+        for(int test_num = 0; test_num < NUM_OF_TESTS; test_num++) {
+          double sequential_time = 0.;
+          double parallel_time = 0.;
+
+          // Executes the program.
+          int has_passed = run_program(
+            NUM_OF_THREADS,
+            array_size,
+            PRECISION,
+            PRINT_ARRAY,
+            &sequential_time,
+            &parallel_time
+          );
+          if (has_passed == 0) {
+            average_has_passed = 0;
+          }
+          average_parallel_time += parallel_time;
+          average_sequential_time += sequential_time;
+        }
+        // Calculates the average sequential and parallel runtimes of all the tests
+        average_sequential_time /= NUM_OF_TESTS;
+        average_parallel_time /= NUM_OF_TESTS;
+
+        // Prints some statistics of the operation of the program.
+        printf("%d,\t", array_size);
+        if (average_has_passed == 0) {
+          printf("FAILED,\t");
+        } else {
+          printf("PASSED,\t");
+        }
+        printf("%f,\t%f\n", average_sequential_time, average_parallel_time);
+      }
     }
   }
 
@@ -338,21 +424,13 @@ int run_program(
   double *ptr_s_output_arr = malloc((ARRAY_SIZE * ARRAY_SIZE) * sizeof(double));
   populate_array(ptr_s_input_arr, ARRAY_SIZE);
   populate_array(ptr_s_output_arr, ARRAY_SIZE);
+  double **pptr_s_input_arr = &ptr_s_input_arr;
+  double **pptr_s_output_arr = &ptr_s_output_arr;
 
   // Compute the average of four neighbors sequentially.
-  int is_switched = compute_sequentially(
-    ptr_s_input_arr,
-    ptr_s_output_arr,
-    ARRAY_SIZE,
-    PRECISION
-  );
-
-  if (is_switched == 0) {
-    free(ptr_s_input_arr);
-    ptr_s_input_arr = ptr_s_output_arr;
-  } else {
-    free(ptr_s_output_arr);
-  }
+  compute_sequentially(pptr_s_input_arr, pptr_s_output_arr, ARRAY_SIZE, PRECISION);
+  ptr_s_input_arr = *pptr_s_input_arr;
+  ptr_s_output_arr = *pptr_s_output_arr;
 
   // Records end time
   clock_t sequential_time_end = clock();
@@ -395,6 +473,7 @@ int run_program(
     ((float)(ARRAY_SIZE * (ARRAY_SIZE - 2))) / (float)NUM_OF_THREADS
   );
 
+  // Assigns the global values for precision and array_size.
   g_precision = PRECISION;
   g_array_size = ARRAY_SIZE;
 
@@ -405,7 +484,7 @@ int run_program(
   // Loops over each thread, creates each thread, and passes in the function
   // and arguments as a struct.
   for (unsigned int thread_index = 0; thread_index < NUM_OF_THREADS; thread_index++) {
-    // Creates a stuct of arguments unique to each thread.
+    // Creates the array of arguments to be given to each thread..
     thread_indexes[thread_index] = thread_index;
 
     // Creates the thread and passes in the function to fun and the arguments for that function
@@ -425,7 +504,7 @@ int run_program(
   pthread_barrier_destroy(&barrier);
 
   // Swaps the pointers to the input and output array. This is done to achieve
-  // the correct answer ad reduce data races when calculating a second set of 
+  // the correct answer and reduce data races when calculating a second set of 
   // averages.
   ptr_p_input_arr = *pptr_p_input_arr;
   ptr_p_output_arr = *pptr_p_output_arr;
@@ -451,16 +530,15 @@ int run_program(
     printf("\nOutput Array:\n");
     print_array(ptr_p_output_arr, ARRAY_SIZE);
     printf("\nExpected Array:\n");
-    print_array(ptr_s_input_arr, ARRAY_SIZE);
+    print_array(ptr_s_output_arr, ARRAY_SIZE);
   }
 
-  int has_passed = is_expected_outcome(ptr_p_output_arr, ptr_s_input_arr, ARRAY_SIZE);
+  // Compares parallel result with sequential result
+  int has_passed = is_expected_outcome(ptr_p_output_arr, ptr_s_output_arr, ARRAY_SIZE);
 
-  if (is_switched == 0) {
-    free(ptr_s_output_arr);
-  } else {
-    free(ptr_s_input_arr);
-  }
+  // Frees up memory
+  free(ptr_s_output_arr);
+  free(ptr_s_input_arr);
   free(ptr_p_input_arr);
   free(ptr_p_output_arr);
   free(threads);
@@ -496,7 +574,7 @@ int run_program(
 void calculate_average_of_neighbors(
   void *args
 ) {
-  // Extracts the passed in structs values.
+  // Gets the passes in thread index value; relative to the program.
   unsigned int THREAD_IDX = *((unsigned int*)args);
 
   // Gets the pointers to the input and output arrays.
@@ -582,7 +660,9 @@ void calculate_average_of_neighbors(
     // value is not written to before being overwritten by another threads.
     pthread_barrier_wait(&barrier);
   }
-  *pptr_p_output_arr = l_ptr_array_1;
+  // Returns the swapped address of the input and output arrays.
+  *pptr_p_output_arr = l_ptr_array_2;
+  *pptr_p_input_arr = l_ptr_array_1;
 }
 
 
@@ -620,20 +700,21 @@ void populate_array(
 /**
  * @brief Populates a given array with the expected outcome values.
  * 
- * @param in_arr     (*double)      pointer to a square 2D-array,
- * @param out_arr    (*double)      pointer to a square 2D-array,
- * @param size       (unsigned int) size of the array (one-dimension),
- * @param g_precision  (double)       Level of g_precision to reach.
+ * @param pptr_in_arr   (**double)       pointer to pointer of the input array,
+ * @param pptr_out_arr  (**double)       pointer to pointer of the input array,
+ * @param size          (unsigned int)   size of the array (one-dimension),
+ * @param precision     (double)         Level of precision to reach.
  * 
- * @return (int) Whether the pointers to the input arrays need to be swapped.
+ * @return (void)
  */
-int compute_sequentially(
-  double *in_arr,
-  double *out_arr,
+void compute_sequentially(
+  double **pptr_in_arr,
+  double **pptr_out_arr,
   unsigned int size,
   double precision
 ) {
-  int number_of_switches = 0;
+  double *in_arr = *pptr_in_arr;
+  double *out_arr = *pptr_out_arr;
   int is_precise = 0;
   while (is_precise == 0) {
     is_precise = 1;
@@ -657,13 +738,13 @@ int compute_sequentially(
         }
       }
     }
-    double *temp_ptr = in_arr;
-    in_arr = out_arr;
-    out_arr = temp_ptr;
-    number_of_switches += 1;
+    double *temp_arr = out_arr;
+    out_arr = in_arr;
+    in_arr = temp_arr;
   }
-  return (number_of_switches % 2);
-};
+  *pptr_in_arr = out_arr;
+  *pptr_out_arr = in_arr;
+}
 
 /**
  * @brief Compares two given arrays to see if their values match.

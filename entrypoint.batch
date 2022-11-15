@@ -1,0 +1,22 @@
+#!/bin/bash
+ 
+# Set the account to be used for the job
+#SBATCH --account=cm30225
+ 
+# Set name of job
+#SBATCH --job-name=gm768-cw1
+#SBATCH --output=gm768-shared-results.out
+#SBATCH --error=gm768-shared-results.err
+ 
+# Set the number of nodes and partition
+#SBATCH --nodes=1
+#SBATCH --partition=teaching
+ 
+# Mail alert at start, end and abortion of execution
+#SBATCH --mail-type=END
+ 
+# Send mail to this address
+#SBATCH --mail-user=gm768@bath.ac.uk
+
+# Run the application
+./main 44 100 0.01 100 0
