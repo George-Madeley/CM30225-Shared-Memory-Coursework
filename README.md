@@ -1,6 +1,6 @@
 # Shared Memory Parallelization Coursework
 
-George Madeley (gm768@bath.ac.uk),
+George Madeley,
 CM30225: Parallel Computing,
 University of Bath
 11-16-2022
